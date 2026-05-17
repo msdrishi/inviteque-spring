@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -24,4 +25,15 @@ public class InviteRequest {
     private Map<String, Object> scheduleData;
     private Map<String, Object> rsvpData;
     private String status;
+
+    // Flat fields for Cloudinary and Modern Builder integration
+    private String coupleNames;
+    private String groomName;
+    private String brideName;
+    private String mahalName;
+    private Object weddingDate; // Can be Map with day/month/year or a String
+    private String venueCity;
+    private String venueName;
+    private List<String> photos;
+    private List<Map<String, Object>> eventSchedule;
 }

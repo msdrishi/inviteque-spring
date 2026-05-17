@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -14,6 +15,8 @@ import java.util.UUID;
 @AllArgsConstructor
 public class InviteResponse {
     private UUID id;
+    private UUID inviteId; // Expectation endpoint: inviteId
+    private Boolean success; // Expectation endpoint: success status
     private String templateId;
     private String code;
     private String status;
@@ -26,4 +29,15 @@ public class InviteResponse {
     private Map<String, Object> scheduleData;
     private Map<String, Object> rsvpData;
     private java.time.LocalDateTime createdAt;
+
+    // Flat fields populated dynamically from JSONB data for Modern Builder integration
+    private String coupleNames;
+    private String groomName;
+    private String brideName;
+    private String mahalName;
+    private Map<String, String> weddingDate;
+    private String venueCity;
+    private String venueName;
+    private List<String> photos;
+    private List<Map<String, Object>> eventSchedule;
 }
