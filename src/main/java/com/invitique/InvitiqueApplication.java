@@ -15,9 +15,12 @@ public class InvitiqueApplication {
     }
 
     private static void loadEnv() {
+        System.out.println("=== SYSTEM STARTUP DIAGNOSTICS ===");
+        
         // 1. Load local .env if it exists
         try {
             if (Files.exists(Paths.get(".env"))) {
+                System.out.println("-> Detected local .env file. Loading keys...");
                 List<String> lines = Files.readAllLines(Paths.get(".env"));
                 for (String line : lines) {
                     line = line.trim();
@@ -37,6 +40,8 @@ public class InvitiqueApplication {
                         System.setProperty(key, value);
                     }
                 }
+            } else {
+                System.out.println("-> No local .env file detected in current directory (" + Paths.get(".").toAbsolutePath() + ")");
             }
         } catch (IOException e) {
             System.err.println("Failed to load .env file: " + e.getMessage());
@@ -48,48 +53,69 @@ public class InvitiqueApplication {
             databaseUrl = System.getProperty("DATABASE_URL");
         }
 
-        if (databaseUrl != null && databaseUrl.startsWith("postgres://")) {
-            try {
-                // Scheme format: postgres://username:password@host:port/database
-                String cleanUrl = databaseUrl.substring("postgres://".length());
-                
-                int atIdx = cleanUrl.indexOf('@');
-                if (atIdx > 0) {
-                    String credentials = cleanUrl.substring(0, atIdx);
-                    String hostAndDb = cleanUrl.substring(atIdx + 1);
+        if (databaseUrl != null) {
+            System.out.println("-> Detected DATABASE_URL environment variable!");
+            if (databaseUrl.startsWith("postgres://")) {
+                try {
+                    // Scheme format: postgres://username:password@host:port/database
+                    String cleanUrl = databaseUrl.substring("postgres://".length());
                     
-                    String username = "";
-                    String password = "";
-                    int colonIdx = credentials.indexOf(':');
-                    if (colonIdx > 0) {
-                        username = credentials.substring(0, colonIdx);
-                        password = credentials.substring(colonIdx + 1);
-                    } else {
-                        username = credentials;
+                    int atIdx = cleanUrl.indexOf('@');
+                    if (atIdx > 0) {
+                        String credentials = cleanUrl.substring(0, atIdx);
+                        String hostAndDb = cleanUrl.substring(atIdx + 1);
+                        
+                        String username = "";
+                        String password = "";
+                        int colonIdx = credentials.indexOf(':');
+                        if (colonIdx > 0) {
+                            username = credentials.substring(0, colonIdx);
+                            password = credentials.substring(colonIdx + 1);
+                        } else {
+                            username = credentials;
+                        }
+                        
+                        int slashIdx = hostAndDb.indexOf('/');
+                        String host = "";
+                        String dbName = "";
+                        if (slashIdx > 0) {
+                            host = hostAndDb.substring(0, slashIdx);
+                            dbName = hostAndDb.substring(slashIdx + 1);
+                        } else {
+                            host = hostAndDb;
+                        }
+                        
+                        // Build correct JDBC URL
+                        String jdbcUrl = "jdbc:postgresql://" + host + "/" + dbName;
+                        
+                        System.setProperty("SPRING_DATASOURCE_URL", jdbcUrl);
+                        System.setProperty("SPRING_DATASOURCE_USERNAME", username);
+                        System.setProperty("SPRING_DATASOURCE_PASSWORD", password);
+                        
+                        System.out.println("-> Successfully parsed DATABASE_URL into JDBC format!");
+                        System.out.println("   JDBC URL: " + jdbcUrl);
+                        System.out.println("   Username: " + username);
                     }
-                    
-                    int slashIdx = hostAndDb.indexOf('/');
-                    String host = "";
-                    String dbName = "";
-                    if (slashIdx > 0) {
-                        host = hostAndDb.substring(0, slashIdx);
-                        dbName = hostAndDb.substring(slashIdx + 1);
-                    } else {
-                        host = hostAndDb;
-                    }
-                    
-                    // Build correct JDBC URL
-                    String jdbcUrl = "jdbc:postgresql://" + host + "/" + dbName;
-                    
-                    System.setProperty("SPRING_DATASOURCE_URL", jdbcUrl);
-                    System.setProperty("SPRING_DATASOURCE_USERNAME", username);
-                    System.setProperty("SPRING_DATASOURCE_PASSWORD", password);
-                    
-                    System.out.println("Successfully parsed and configured database from DATABASE_URL: " + jdbcUrl);
+                } catch (Exception e) {
+                    System.err.println("Failed to parse DATABASE_URL: " + e.getMessage());
                 }
-            } catch (Exception e) {
-                System.err.println("Failed to parse DATABASE_URL: " + e.getMessage());
+            } else {
+                System.out.println("   DATABASE_URL does not start with postgres:// scheme. Skipping parsing.");
             }
+        } else {
+            System.out.println("-> No DATABASE_URL environment variable found.");
         }
+
+        // 3. Log state of manual SPRING_DATASOURCE variables
+        String springDsUrl = System.getenv("SPRING_DATASOURCE_URL");
+        if (springDsUrl == null) springDsUrl = System.getProperty("SPRING_DATASOURCE_URL");
+        
+        String springDsUser = System.getenv("SPRING_DATASOURCE_USERNAME");
+        if (springDsUser == null) springDsUser = System.getProperty("SPRING_DATASOURCE_USERNAME");
+
+        System.out.println("-> Final resolved datasource properties in memory:");
+        System.out.println("   url: " + (springDsUrl != null ? springDsUrl : "NULL (falling back to application.yml default)"));
+        System.out.println("   username: " + (springDsUser != null ? springDsUser : "NULL (falling back to application.yml default)"));
+        System.out.println("==================================");
     }
 }
