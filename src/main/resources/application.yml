@@ -28,7 +28,7 @@ spring:
             redirect-uri: "{baseUrl}/api/auth/oauth2/callback/{registrationId}"
 
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 # Application Specific Properties
 app:
