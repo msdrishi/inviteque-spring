@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/inviteque
-    username: postgres
-    password: rishi2001
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/inviteque}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:rishi2001}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
