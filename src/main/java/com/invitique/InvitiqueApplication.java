@@ -15,6 +15,7 @@ public class InvitiqueApplication {
     }
 
     private static void loadEnv() {
+        // 1. Load local .env if it exists
         try {
             if (Files.exists(Paths.get(".env"))) {
                 List<String> lines = Files.readAllLines(Paths.get(".env"));
@@ -39,6 +40,56 @@ public class InvitiqueApplication {
             }
         } catch (IOException e) {
             System.err.println("Failed to load .env file: " + e.getMessage());
+        }
+
+        // 2. Parse DATABASE_URL if present (Render/Heroku automatic database binding)
+        String databaseUrl = System.getenv("DATABASE_URL");
+        if (databaseUrl == null) {
+            databaseUrl = System.getProperty("DATABASE_URL");
+        }
+
+        if (databaseUrl != null && databaseUrl.startsWith("postgres://")) {
+            try {
+                // Scheme format: postgres://username:password@host:port/database
+                String cleanUrl = databaseUrl.substring("postgres://".length());
+                
+                int atIdx = cleanUrl.indexOf('@');
+                if (atIdx > 0) {
+                    String credentials = cleanUrl.substring(0, atIdx);
+                    String hostAndDb = cleanUrl.substring(atIdx + 1);
+                    
+                    String username = "";
+                    String password = "";
+                    int colonIdx = credentials.indexOf(':');
+                    if (colonIdx > 0) {
+                        username = credentials.substring(0, colonIdx);
+                        password = credentials.substring(colonIdx + 1);
+                    } else {
+                        username = credentials;
+                    }
+                    
+                    int slashIdx = hostAndDb.indexOf('/');
+                    String host = "";
+                    String dbName = "";
+                    if (slashIdx > 0) {
+                        host = hostAndDb.substring(0, slashIdx);
+                        dbName = hostAndDb.substring(slashIdx + 1);
+                    } else {
+                        host = hostAndDb;
+                    }
+                    
+                    // Build correct JDBC URL
+                    String jdbcUrl = "jdbc:postgresql://" + host + "/" + dbName;
+                    
+                    System.setProperty("SPRING_DATASOURCE_URL", jdbcUrl);
+                    System.setProperty("SPRING_DATASOURCE_USERNAME", username);
+                    System.setProperty("SPRING_DATASOURCE_PASSWORD", password);
+                    
+                    System.out.println("Successfully parsed and configured database from DATABASE_URL: " + jdbcUrl);
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to parse DATABASE_URL: " + e.getMessage());
+            }
         }
     }
 }
