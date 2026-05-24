@@ -3,6 +3,7 @@ package com.invitique.service.impl;
 import com.invitique.domain.model.Invite;
 import com.invitique.domain.model.User;
 import com.invitique.domain.repository.InviteRepository;
+import com.invitique.domain.repository.CouponRepository;
 import com.invitique.dto.request.InviteRequest;
 import com.invitique.service.InviteService;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ import java.util.UUID;
 public class InviteServiceImpl implements InviteService {
 
     private final InviteRepository inviteRepository;
+    private final CouponRepository couponRepository;
     private static final String ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"; // Removed similar looking chars like 0, 1, O, I
     private final Random random = new Random();
 
@@ -131,8 +133,15 @@ public class InviteServiceImpl implements InviteService {
         if (request.getInvitationData() != null) invite.setInvitationData(request.getInvitationData());
         if (request.getEventData() != null) invite.setEventData(request.getEventData());
         if (request.getRsvpData() != null) invite.setRsvpData(request.getRsvpData());
+        if (request.getCouponCode() != null) invite.setCouponCode(request.getCouponCode());
 
-        return inviteRepository.save(invite);
+        Invite savedInvite = inviteRepository.save(invite);
+
+        if (savedInvite.getStatus() == Invite.InviteStatus.PAID && savedInvite.getCouponCode() != null) {
+            claimCoupon(savedInvite.getCouponCode(), savedInvite);
+        }
+
+        return savedInvite;
     }
 
     @Override
@@ -288,7 +297,22 @@ public class InviteServiceImpl implements InviteService {
         invite.setAmountPaid(amount);
         invite.setPaidAt(LocalDateTime.now());
         
-        inviteRepository.save(invite);
+        Invite savedInvite = inviteRepository.save(invite);
+
+        if (savedInvite.getCouponCode() != null) {
+            claimCoupon(savedInvite.getCouponCode(), savedInvite);
+        }
+    }
+
+    private void claimCoupon(String couponCode, Invite invite) {
+        couponRepository.findByCodeIgnoreCase(couponCode).ifPresent(coupon -> {
+            if (coupon.isAvailable()) {
+                coupon.setAvailable(false);
+                coupon.setPurchasedDate(LocalDateTime.now());
+                coupon.setInviteId(invite.getId());
+                couponRepository.save(coupon);
+            }
+        });
     }
 
     private String generateUniqueCode() {

@@ -25,6 +25,7 @@ public class InviteRequest {
     private Map<String, Object> scheduleData;
     private Map<String, Object> rsvpData;
     private String status;
+    private String couponCode;
 
     // Flat fields for Cloudinary and Modern Builder integration
     private String coupleNames;

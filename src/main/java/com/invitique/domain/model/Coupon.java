@@ -30,6 +30,12 @@ public class Coupon {
     @Column(name = "is_available", nullable = false)
     private boolean isAvailable;
 
+    @Column(name = "purchased_date")
+    private LocalDateTime purchasedDate;
+
+    @Column(name = "invite_id")
+    private UUID inviteId;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
