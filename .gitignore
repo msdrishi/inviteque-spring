@@ -32,3 +32,6 @@ target/
 *.log
 debug_log.txt
 .env
+
+# Backups and SQL files
+*.sql

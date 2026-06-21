@@ -55,10 +55,11 @@ public class InvitiqueApplication {
 
         if (databaseUrl != null) {
             System.out.println("-> Detected DATABASE_URL environment variable!");
-            if (databaseUrl.startsWith("postgres://")) {
+            if (databaseUrl.startsWith("postgres://") || databaseUrl.startsWith("postgresql://")) {
                 try {
-                    // Scheme format: postgres://username:password@host:port/database
-                    String cleanUrl = databaseUrl.substring("postgres://".length());
+                    // Scheme format: postgres[ql]://username:password@host:port/database
+                    String scheme = databaseUrl.startsWith("postgresql://") ? "postgresql://" : "postgres://";
+                    String cleanUrl = databaseUrl.substring(scheme.length());
                     
                     int atIdx = cleanUrl.indexOf('@');
                     if (atIdx > 0) {

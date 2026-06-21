@@ -35,20 +35,34 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
+        String authHeader = request.getHeader("Authorization");
         String token = extractToken(request);
 
-        if (StringUtils.hasText(token) && jwtTokenProvider.validateToken(token)) {
-            UUID userId = jwtTokenProvider.getUserIdFromToken(token);
-            User user = userRepository.findById(userId).orElse(null);
-
-            if (user != null) {
-                UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                        user,
-                        null,
-                        List.of(new SimpleGrantedAuthority("ROLE_USER"))
-                );
-                SecurityContextHolder.getContext().setAuthentication(auth);
+        if (StringUtils.hasText(token)) {
+            System.out.println("[JWT DEBUG] Received Authorization Header: " + authHeader);
+            try {
+                boolean isValid = jwtTokenProvider.validateToken(token);
+                System.out.println("[JWT DEBUG] Token validation result: " + isValid);
+                if (isValid) {
+                    UUID userId = jwtTokenProvider.getUserIdFromToken(token);
+                    System.out.println("[JWT DEBUG] Extracted User ID: " + userId);
+                    User user = userRepository.findById(userId).orElse(null);
+                    System.out.println("[JWT DEBUG] User found in database: " + (user != null));
+                    if (user != null) {
+                        System.out.println("[JWT DEBUG] Authenticated user: " + user.getEmail());
+                        UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                                user,
+                                null,
+                                List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                        );
+                        SecurityContextHolder.getContext().setAuthentication(auth);
+                    }
+                }
+            } catch (Exception e) {
+                System.out.println("[JWT DEBUG] Exception during token parsing: " + e.getMessage());
             }
+        } else if (authHeader != null) {
+            System.out.println("[JWT DEBUG] Received Authorization Header but could not extract token: " + authHeader);
         }
 
         filterChain.doFilter(request, response);

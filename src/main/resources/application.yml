@@ -35,7 +35,7 @@ app:
   jwt:
     # Generate using: openssl rand -base64 32
     secret: ${JWT_SECRET:NmU0ZTM2ZTNmMGNmZGRiYTk4YjU5YmU0ZGI3Y2RjZGU1MGRjZTQ3ZDUwZTcwYmYwOTAzYjQ0ZWU0NmI4NmI0MQ==}
-    expiration-ms: 86400000 # 24 Hours
+    expiration-ms: 2592000000 # 30 Days (2592000000 ms)
     refresh-expiration-ms: 604800000 # 7 Days
 
 razorpay:
@@ -43,7 +43,7 @@ razorpay:
   key-secret: ${RAZORPAY_KEY_SECRET:YOUR_RAZORPAY_KEY_SECRET}
 
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,https://www.invitique.com}
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,https://inviteque.com,https://www.inviteque.com,https://www.invitique.com}
 
 logging:
   level:
