@@ -101,6 +101,9 @@ public class InviteServiceImpl implements InviteService {
                     heroData.put("weddingDate", request.getWeddingDate());
                 }
             }
+            if (request.getWeddingTime() != null) {
+                heroData.put("weddingTime", request.getWeddingTime());
+            }
             invite.setHeroData(heroData);
 
             // Populate venueData
@@ -108,6 +111,8 @@ public class InviteServiceImpl implements InviteService {
             venueData.put("mahalName", request.getMahalName());
             venueData.put("venueAddress", request.getVenueName());
             venueData.put("venueCity", request.getVenueCity());
+            venueData.put("state", request.getState());
+            venueData.put("mapLink", request.getMapLink());
             invite.setVenueData(venueData);
 
             // Populate storyData
@@ -168,7 +173,7 @@ public class InviteServiceImpl implements InviteService {
         }
 
         // Apply partial updates: if new flat fields are sent, merge them into the JSONB structures
-        if (request.getGroomName() != null || request.getBrideName() != null || request.getPhotos() != null || request.getEventSchedule() != null || request.getMahalName() != null || request.getVenueCity() != null || request.getVenueName() != null || request.getWeddingDate() != null) {
+        if (request.getGroomName() != null || request.getBrideName() != null || request.getPhotos() != null || request.getEventSchedule() != null || request.getMahalName() != null || request.getVenueCity() != null || request.getVenueName() != null || request.getWeddingDate() != null || request.getWeddingTime() != null || request.getState() != null || request.getMapLink() != null) {
             
             // Merge coupleData
             Map<String, Object> coupleData = invite.getCoupleData() != null ? new java.util.HashMap<>(invite.getCoupleData()) : new java.util.HashMap<>();
@@ -190,6 +195,9 @@ public class InviteServiceImpl implements InviteService {
                     heroData.put("weddingDate", request.getWeddingDate());
                 }
             }
+            if (request.getWeddingTime() != null) {
+                heroData.put("weddingTime", request.getWeddingTime());
+            }
             invite.setHeroData(heroData);
 
             // Merge venueData
@@ -197,6 +205,8 @@ public class InviteServiceImpl implements InviteService {
             if (request.getMahalName() != null) venueData.put("mahalName", request.getMahalName());
             if (request.getVenueName() != null) venueData.put("venueAddress", request.getVenueName());
             if (request.getVenueCity() != null) venueData.put("venueCity", request.getVenueCity());
+            if (request.getState() != null) venueData.put("state", request.getState());
+            if (request.getMapLink() != null) venueData.put("mapLink", request.getMapLink());
             invite.setVenueData(venueData);
 
             // Merge storyData

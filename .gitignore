@@ -31,6 +31,9 @@ target/
 ### Custom ###
 *.log
 debug_log.txt
+debug_log_utf8.txt
+run_output.txt
+run_output_utf8.txt
 .env
 
 # Backups and SQL files

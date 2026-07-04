@@ -37,6 +37,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/templates").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/invites/*").permitAll()
                         .requestMatchers("/error").permitAll()
+                        // Admin endpoints
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // Protected
                         .anyRequest().authenticated()
                 )

@@ -35,6 +35,9 @@ public class InviteRequest {
     private Object weddingDate; // Can be Map with day/month/year or a String
     private String venueCity;
     private String venueName;
+    private String state;
+    private String mapLink;
+    private String weddingTime;
     private List<String> photos;
     private List<Map<String, Object>> eventSchedule;
 }

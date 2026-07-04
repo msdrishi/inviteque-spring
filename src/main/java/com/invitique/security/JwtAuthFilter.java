@@ -50,10 +50,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     System.out.println("[JWT DEBUG] User found in database: " + (user != null));
                     if (user != null) {
                         System.out.println("[JWT DEBUG] Authenticated user: " + user.getEmail());
+                        List<SimpleGrantedAuthority> authorities = user.getRoles().stream()
+                                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name()))
+                                .collect(java.util.stream.Collectors.toList());
                         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                                 user,
                                 null,
-                                List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                                authorities
                         );
                         SecurityContextHolder.getContext().setAuthentication(auth);
                     }

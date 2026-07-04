@@ -50,6 +50,7 @@ public class AuthServiceImpl implements AuthService {
                 .userId(savedUser.getId().toString())
                 .email(savedUser.getEmail())
                 .name(savedUser.getName())
+                .roles(savedUser.getRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.toSet()))
                 .build();
     }
 
@@ -69,6 +70,7 @@ public class AuthServiceImpl implements AuthService {
                 .userId(user.getId().toString())
                 .email(user.getEmail())
                 .name(user.getName())
+                .roles(user.getRoles().stream().map(Enum::name).collect(java.util.stream.Collectors.toSet()))
                 .build();
     }
 }
