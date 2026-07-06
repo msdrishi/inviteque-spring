@@ -48,9 +48,18 @@ public class InvitiqueApplication {
         }
 
         // 2. Parse DATABASE_URL if present (Render/Heroku automatic database binding)
-        String databaseUrl = System.getenv("DATABASE_URL");
-        if (databaseUrl == null) {
-            databaseUrl = System.getProperty("DATABASE_URL");
+        // Only parse if SPRING_DATASOURCE_URL is not already explicitly set in env/properties
+        String springDsUrlCheck = System.getenv("SPRING_DATASOURCE_URL");
+        if (springDsUrlCheck == null) springDsUrlCheck = System.getProperty("SPRING_DATASOURCE_URL");
+
+        String databaseUrl = null;
+        if (springDsUrlCheck == null) {
+            databaseUrl = System.getenv("DATABASE_URL");
+            if (databaseUrl == null) {
+                databaseUrl = System.getProperty("DATABASE_URL");
+            }
+        } else {
+            System.out.println("-> SPRING_DATASOURCE_URL is explicitly set. Skipping DATABASE_URL parsing.");
         }
 
         if (databaseUrl != null) {
