@@ -6,9 +6,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.filter.CorsFilter;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Configuration
 public class CorsConfig {
@@ -19,7 +21,18 @@ public class CorsConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(allowedOrigins);
+        
+        // Merge user-defined origins with production domain fallbacks
+        Set<String> origins = new LinkedHashSet<>();
+        if (allowedOrigins != null) {
+            origins.addAll(allowedOrigins);
+        }
+        origins.add("https://inviteque.com");
+        origins.add("https://www.inviteque.com");
+        origins.add("https://inviteque-landing.vercel.app");
+        origins.add("https://www.invitique.com");
+        
+        config.setAllowedOrigins(new ArrayList<>(origins));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
