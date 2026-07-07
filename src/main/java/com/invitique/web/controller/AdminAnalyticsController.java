@@ -41,6 +41,77 @@ public class AdminAnalyticsController {
         return ResponseEntity.ok(activeCoupons);
     }
 
+    @GetMapping(value = "/api/public/meta/{templateId}/{code}")
+    public ResponseEntity<String> getInviteMeta(@PathVariable String templateId, @PathVariable String code) {
+        Optional<Invite> inviteOpt = inviteRepository.findByCode(code);
+        if (inviteOpt.isEmpty()) {
+            return ResponseEntity.status(404)
+                    .header("Content-Type", "text/html; charset=UTF-8")
+                    .body("<html><body>Invitation not found.</body></html>");
+        }
+        Invite invite = inviteOpt.get();
+        
+        String groom = invite.getCoupleData() != null ? (String) invite.getCoupleData().get("groomName") : "Groom";
+        String bride = invite.getCoupleData() != null ? (String) invite.getCoupleData().get("brideName") : "Bride";
+        String title = "Wedding Invitation: " + groom + " & " + bride;
+        
+        String date = "our wedding day";
+        if (invite.getHeroData() != null) {
+            String wDate = (String) invite.getHeroData().get("weddingDate");
+            String wMonth = (String) invite.getHeroData().get("weddingMonth");
+            String wYear = (String) invite.getHeroData().get("weddingYear");
+            if (wDate != null && wMonth != null) {
+                date = wDate + " " + wMonth + (wYear != null ? " " + wYear : "");
+            }
+        }
+        
+        String venue = "our venue";
+        if (invite.getVenueData() != null) {
+            String mName = (String) invite.getVenueData().get("mahalName");
+            if (mName != null) {
+                venue = mName;
+            } else {
+                String vAddress = (String) invite.getVenueData().get("venueAddress");
+                if (vAddress != null) {
+                    venue = vAddress;
+                }
+            }
+        }
+        String city = invite.getVenueData() != null ? (String) invite.getVenueData().get("venueCity") : null;
+        String desc = "We invite you to celebrate the wedding ceremony of " + groom + " & " + bride + 
+                      " on " + date + " at " + venue + (city != null ? ", " + city : "") + ". Click to view the interactive invitation website.";
+
+        // Premium template cover/screenshot image:
+        String imageUrl = "https://res.cloudinary.com/djbxuk2xr/image/upload/v1782033902/nelfh17u4fep6v8ksoei.webp"; // fallback aura-of-elegance screenshot
+        if ("royal-wedding".equals(templateId)) {
+            imageUrl = "https://res.cloudinary.com/djbxuk2xr/image/upload/f_auto,q_auto/v1780830584/bevo6p9kp87xs9glyczu.png";
+        }
+        
+        String html = "<!DOCTYPE html>\n" +
+               "<html>\n" +
+               "<head>\n" +
+               "    <meta charset=\"utf-8\">\n" +
+               "    <title>" + title + "</title>\n" +
+               "    <meta property=\"og:title\" content=\"" + title + "\">\n" +
+               "    <meta property=\"og:description\" content=\"" + desc + "\">\n" +
+               "    <meta property=\"og:image\" content=\"" + imageUrl + "\">\n" +
+               "    <meta property=\"og:url\" content=\"https://www.inviteque.com/templates/" + templateId + "/" + code + "\">\n" +
+               "    <meta property=\"og:type\" content=\"website\">\n" +
+               "    <meta name=\"twitter:card\" content=\"summary_large_image\">\n" +
+               "    <script>\n" +
+               "        window.location.replace(\"https://www.inviteque.com/templates/" + templateId + "/" + code + "?redirected=true\");\n" +
+               "    </script>\n" +
+               "</head>\n" +
+               "<body>\n" +
+               "    Redirecting to wedding invitation website...\n" +
+               "</body>\n" +
+               "</html>";
+
+        return ResponseEntity.ok()
+                .header("Content-Type", "text/html; charset=UTF-8")
+                .body(html);
+    }
+
     @PostMapping("/api/public/analytics/visit")
     public ResponseEntity<?> logVisit(@RequestBody VisitRequest requestBody, HttpServletRequest request) {
         String ipAddress = request.getHeader("X-Forwarded-For");
