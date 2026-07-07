@@ -37,6 +37,7 @@ app:
 razorpay:
   key-id: ${RAZORPAY_KEY_ID:YOUR_RAZORPAY_KEY_ID}
   key-secret: ${RAZORPAY_KEY_SECRET:YOUR_RAZORPAY_KEY_SECRET}
+  enabled: ${RAZORPAY_ENABLED:false}
 
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,https://inviteque.com,https://www.inviteque.com,https://www.invitique.com,https://inviteque-landing.vercel.app}
