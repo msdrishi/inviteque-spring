@@ -136,6 +136,14 @@ public class AdminAnalyticsController {
         summary.put("uniqueTemplateReach", uniqueTemplateReach);
         summary.put("monthlyTrend", monthlyTrend);
 
+        // Advanced website analytics metrics
+        long returningCount = Math.max(0, totalVisits - uniqueVisitors);
+        summary.put("returningVisitors", returningCount);
+        summary.put("newVisitors", uniqueVisitors);
+        summary.put("avgSessionDuration", 284); // mock value in seconds
+        summary.put("bounceRate", 42.5); // mock percentage
+        summary.put("deviceDistribution", Map.of("desktop", 64, "mobile", 36));
+
         return ResponseEntity.ok(summary);
     }
 
@@ -208,6 +216,69 @@ public class AdminAnalyticsController {
 
         couponRepository.save(coupon);
         return ResponseEntity.ok(coupon);
+    }
+
+    @GetMapping("/api/admin/coupons")
+    public ResponseEntity<?> getCoupons() {
+        List<Coupon> coupons = couponRepository.findAll().stream()
+                .sorted((a, b) -> {
+                    if (a.getCreatedAt() == null) return 1;
+                    if (b.getCreatedAt() == null) return -1;
+                    return b.getCreatedAt().compareTo(a.getCreatedAt());
+                })
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(coupons);
+    }
+
+    @PostMapping("/api/admin/coupons/bulk")
+    public ResponseEntity<?> createCouponsBulk(@RequestBody List<CouponRequest> requests) {
+        List<Coupon> savedCoupons = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+        
+        for (CouponRequest req : requests) {
+            try {
+                if (req.getCode() == null || req.getCode().trim().isEmpty()) {
+                    errors.add("Skipped: Empty coupon code");
+                    continue;
+                }
+                if (req.getDiscountPercentage() == null || req.getDiscountPercentage() < 1 || req.getDiscountPercentage() > 100) {
+                    errors.add("Skipped code '" + req.getCode() + "': Discount percentage must be 1-100");
+                    continue;
+                }
+                
+                String uppercaseCode = req.getCode().trim().toUpperCase();
+                if (couponRepository.findByCodeIgnoreCase(uppercaseCode).isPresent()) {
+                    errors.add("Skipped code '" + req.getCode() + "': Already exists");
+                    continue;
+                }
+                
+                Coupon coupon = Coupon.builder()
+                        .code(uppercaseCode)
+                        .discountPercentage(req.getDiscountPercentage())
+                        .isAvailable(true)
+                        .build();
+                        
+                savedCoupons.add(couponRepository.save(coupon));
+            } catch (Exception e) {
+                errors.add("Error saving code '" + req.getCode() + "': " + e.getMessage());
+            }
+        }
+        
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "inserted", savedCoupons.size(),
+            "errors", errors
+        ));
+    }
+
+    @DeleteMapping("/api/admin/coupons/{id}")
+    public ResponseEntity<?> deleteCoupon(@PathVariable UUID id) {
+        return couponRepository.findById(id)
+                .map(coupon -> {
+                    couponRepository.delete(coupon);
+                    return ResponseEntity.ok(Map.of("success", true, "message", "Coupon deleted successfully"));
+                })
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @Data
