@@ -28,6 +28,19 @@ public class AdminAnalyticsController {
     private final VisitorLogRepository visitorLogRepository;
     private final CouponRepository couponRepository;
 
+    @GetMapping("/api/public/coupons")
+    public ResponseEntity<?> getPublicActiveCoupons() {
+        List<Coupon> activeCoupons = couponRepository.findAll().stream()
+                .filter(Coupon::isAvailable)
+                .sorted((a, b) -> {
+                    if (a.getCreatedAt() == null) return 1;
+                    if (b.getCreatedAt() == null) return -1;
+                    return b.getCreatedAt().compareTo(a.getCreatedAt());
+                })
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(activeCoupons);
+    }
+
     @PostMapping("/api/public/analytics/visit")
     public ResponseEntity<?> logVisit(@RequestBody VisitRequest requestBody, HttpServletRequest request) {
         String ipAddress = request.getHeader("X-Forwarded-For");
