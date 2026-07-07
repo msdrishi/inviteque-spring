@@ -233,13 +233,7 @@ public class AdminAnalyticsController {
 
     @GetMapping("/api/admin/coupons")
     public ResponseEntity<?> getCoupons() {
-        List<Coupon> coupons = couponRepository.findAll().stream()
-                .sorted((a, b) -> {
-                    if (a.getCreatedAt() == null) return 1;
-                    if (b.getCreatedAt() == null) return -1;
-                    return b.getCreatedAt().compareTo(a.getCreatedAt());
-                })
-                .collect(Collectors.toList());
+        List<Coupon> coupons = couponRepository.findAllByOrderByCreatedAtDesc();
         return ResponseEntity.ok(coupons);
     }
 
