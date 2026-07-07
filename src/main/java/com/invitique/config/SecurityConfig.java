@@ -1,7 +1,6 @@
 package com.invitique.config;
 
 import com.invitique.security.JwtAuthFilter;
-import com.invitique.security.OAuth2SuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,7 +21,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
-    private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -42,10 +40,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // Protected
                         .anyRequest().authenticated()
-                )
-                .oauth2Login(oauth -> oauth
-                        .loginProcessingUrl("/api/auth/oauth2/callback/*")
-                        .successHandler(oAuth2SuccessHandler)
                 )
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
