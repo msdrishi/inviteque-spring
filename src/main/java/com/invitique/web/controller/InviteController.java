@@ -36,6 +36,7 @@ public class InviteController {
     public ResponseEntity<Map<String, Object>> getAllInvites(
             @AuthenticationPrincipal User user) {
         List<InviteResponse> responses = inviteService.getUserInvites(user).stream()
+                .filter(invite -> invite.getStatus() == Invite.InviteStatus.PAID)
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(Map.of(
@@ -45,7 +46,9 @@ public class InviteController {
     }
 
     @GetMapping("/{idOrCode}")
-    public ResponseEntity<InviteResponse> getInvite(@PathVariable String idOrCode) {
+    public ResponseEntity<?> getInvite(
+            @PathVariable String idOrCode,
+            @AuthenticationPrincipal User user) {
         Optional<Invite> inviteOpt;
         try {
             UUID uuid = UUID.fromString(idOrCode);
@@ -54,8 +57,21 @@ public class InviteController {
             inviteOpt = inviteService.getInviteByCode(idOrCode);
         }
         
-        return inviteOpt.map(invite -> ResponseEntity.ok(mapToResponse(invite)))
-                .orElse(ResponseEntity.notFound().build());
+        if (inviteOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        Invite invite = inviteOpt.get();
+        
+        // If it is a draft, only the owner can view it
+        if (invite.getStatus() == Invite.InviteStatus.DRAFT) {
+            if (user == null || !invite.getUser().getId().equals(user.getId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("message", "Only the owner can view draft invitations"));
+            }
+        }
+        
+        return ResponseEntity.ok(mapToResponse(invite));
     }
 
     @PutMapping("/{id}")
@@ -78,6 +94,7 @@ public class InviteController {
     @GetMapping("/my")
     public ResponseEntity<List<InviteResponse>> getMyInvites(@AuthenticationPrincipal User user) {
         List<InviteResponse> responses = inviteService.getUserInvites(user).stream()
+                .filter(invite -> invite.getStatus() == Invite.InviteStatus.PAID)
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(responses);
