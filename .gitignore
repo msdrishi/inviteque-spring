@@ -38,3 +38,4 @@ run_output_utf8.txt
 
 # Backups and SQL files
 *.sql
+!src/main/resources/db/migration/*.sql
