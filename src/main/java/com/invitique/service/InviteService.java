@@ -15,5 +15,5 @@ public interface InviteService {
     Optional<Invite> getInviteByCode(String code);
     Optional<Invite> getInviteById(UUID id);
     List<Invite> getUserInvites(User user);
-    void updatePaymentStatus(UUID inviteId, String orderId, String paymentId, int amount);
+    void updatePaymentStatus(UUID inviteId, String orderId, String paymentId, double amount);
 }

@@ -82,8 +82,8 @@ public class AdminAnalyticsController {
                       " on " + date + " at " + venue + (city != null ? ", " + city : "") + ". Click to view the interactive invitation website.";
 
         // Premium template cover/screenshot image:
-        String imageUrl = "https://res.cloudinary.com/djbxuk2xr/image/upload/v1782033902/nelfh17u4fep6v8ksoei.webp"; // fallback aura-of-elegance screenshot
-        if ("royal-wedding".equals(templateId)) {
+        String imageUrl = "https://res.cloudinary.com/djbxuk2xr/image/upload/f_auto,q_auto/v1779029514/enlgamenyitexgthsrho.png"; // fallback/aura-of-elegance layout preview screenshot
+        if ("royal-wedding".equals(templateId) || "template-1".equals(templateId)) {
             imageUrl = "https://res.cloudinary.com/djbxuk2xr/image/upload/f_auto,q_auto/v1780830584/bevo6p9kp87xs9glyczu.png";
         }
         

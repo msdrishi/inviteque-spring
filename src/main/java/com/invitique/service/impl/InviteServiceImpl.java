@@ -297,7 +297,7 @@ public class InviteServiceImpl implements InviteService {
 
     @Override
     @Transactional
-    public void updatePaymentStatus(UUID inviteId, String orderId, String paymentId, int amount) {
+    public void updatePaymentStatus(UUID inviteId, String orderId, String paymentId, double amount) {
         Invite invite = inviteRepository.findById(inviteId)
                 .orElseThrow(() -> new RuntimeException("Invite not found"));
         
