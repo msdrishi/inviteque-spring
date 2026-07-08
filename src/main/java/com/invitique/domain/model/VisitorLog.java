@@ -28,6 +28,9 @@ public class VisitorLog {
     @Column(name = "ip_address", length = 100)
     private String ipAddress;
 
+    @Column(name = "device_type", length = 50)
+    private String deviceType;
+
     @CreationTimestamp
     @Column(name = "visited_at", updatable = false)
     private LocalDateTime visitedAt;

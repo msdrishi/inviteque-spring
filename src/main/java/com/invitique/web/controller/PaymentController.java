@@ -1,7 +1,9 @@
 package com.invitique.web.controller;
 
+import com.invitique.domain.model.Coupon;
 import com.invitique.domain.model.Invite;
 import com.invitique.domain.model.User;
+import com.invitique.domain.repository.CouponRepository;
 import com.invitique.domain.repository.InviteRepository;
 import com.invitique.service.InviteService;
 import com.razorpay.Order;
@@ -12,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -37,6 +40,7 @@ public class PaymentController {
 
     private final InviteRepository inviteRepository;
     private final InviteService inviteService;
+    private final CouponRepository couponRepository;
 
     @PostMapping("/order")
     public ResponseEntity<?> createOrder(
@@ -58,14 +62,14 @@ public class PaymentController {
                 return ResponseEntity.status(403).body(Map.of("message", "Unauthorized"));
             }
 
-            int amountInRupees = 999; // Default price
-            int finalPrice = amountInRupees;
+            double amountInRupees = 999.0;
+            double finalPrice = amountInRupees;
             if (request.getDiscountPercentage() != null) {
-                int discount = (amountInRupees * request.getDiscountPercentage()) / 100;
+                double discount = (amountInRupees * request.getDiscountPercentage()) / 100.0;
                 finalPrice = amountInRupees - discount;
             }
             
-            int amountInPaise = finalPrice * 100;
+            int amountInPaise = (int) Math.round(finalPrice * 100.0);
 
             RazorpayClient razorpay = new RazorpayClient(keyId, keySecret);
             JSONObject orderRequest = new JSONObject();
@@ -123,25 +127,34 @@ public class PaymentController {
             }
 
             // Save the invitation details passed in the request (or update status)
+            Invite finalInvite;
             if (request.getInviteRequest() != null) {
                 // Force status to PAID
                 request.getInviteRequest().setStatus("PAID");
-                Invite updatedInvite = inviteService.createOrUpdateInvite(user, request.getInviteRequest());
-                
-                // Update payment fields in database
-                updatedInvite.setRazorpayOrderId(request.getRazorpayOrderId());
-                updatedInvite.setRazorpayPaymentId(request.getRazorpayPaymentId());
-                updatedInvite.setAmountPaid(request.getAmountPaid() != null ? request.getAmountPaid() : 999);
-                updatedInvite.setPaidAt(LocalDateTime.now());
-                inviteRepository.save(updatedInvite);
+                finalInvite = inviteService.createOrUpdateInvite(user, request.getInviteRequest());
             } else {
                 invite.setStatus(Invite.InviteStatus.PAID);
-                invite.setRazorpayOrderId(request.getRazorpayOrderId());
-                invite.setRazorpayPaymentId(request.getRazorpayPaymentId());
-                invite.setAmountPaid(request.getAmountPaid() != null ? request.getAmountPaid() : 999);
-                invite.setPaidAt(LocalDateTime.now());
-                inviteRepository.save(invite);
+                finalInvite = invite;
             }
+            
+            finalInvite.setRazorpayOrderId(request.getRazorpayOrderId());
+            finalInvite.setRazorpayPaymentId(request.getRazorpayPaymentId());
+            finalInvite.setAmountPaid(request.getAmountPaid() != null ? request.getAmountPaid() : 999.0);
+            finalInvite.setPaidAt(LocalDateTime.now());
+            
+            if (request.getCouponCode() != null && !request.getCouponCode().trim().isEmpty()) {
+                finalInvite.setCouponCode(request.getCouponCode().trim().toUpperCase());
+                
+                // Set the coupon as used / unavailable
+                couponRepository.findByCodeIgnoreCase(request.getCouponCode().trim()).ifPresent(coupon -> {
+                    coupon.setAvailable(false);
+                    coupon.setPurchasedDate(LocalDateTime.now());
+                    coupon.setInviteId(finalInvite.getId());
+                    couponRepository.save(coupon);
+                });
+            }
+            
+            inviteRepository.save(finalInvite);
 
             return ResponseEntity.ok(Map.of("success", true, "message", "Payment verified and saved successfully"));
 
@@ -163,7 +176,8 @@ public class PaymentController {
         private String razorpayOrderId;
         private String razorpayPaymentId;
         private String razorpaySignature;
-        private Integer amountPaid;
+        private Double amountPaid;
+        private String couponCode;
         private com.invitique.dto.request.InviteRequest inviteRequest;
     }
 }

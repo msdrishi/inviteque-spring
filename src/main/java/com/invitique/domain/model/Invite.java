@@ -76,7 +76,7 @@ public class Invite {
     private String razorpayPaymentId;
 
     @Column(name = "amount_paid")
-    private Integer amountPaid;
+    private Double amountPaid;
 
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
