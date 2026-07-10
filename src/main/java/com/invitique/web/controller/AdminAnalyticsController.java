@@ -14,6 +14,10 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -299,6 +303,35 @@ public class AdminAnalyticsController {
                 .limit(100) // Show last 100 log entries
                 .collect(Collectors.toList());
         return ResponseEntity.ok(logs);
+    }
+
+    @GetMapping("/api/admin/users")
+    public ResponseEntity<?> getRegisteredUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int limit) {
+        
+        Pageable pageable = PageRequest.of(page, limit, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<User> usersPage = userRepository.findAll(pageable);
+        
+        List<Map<String, Object>> content = usersPage.getContent().stream()
+                .map(u -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id", u.getId());
+                    m.put("name", u.getName() != null ? u.getName() : "No Name");
+                    m.put("email", u.getEmail());
+                    m.put("createdAt", u.getCreatedAt());
+                    m.put("phoneNumber", u.getPhoneNumber() != null ? u.getPhoneNumber() : "N/A");
+                    return m;
+                })
+                .collect(Collectors.toList());
+                
+        Map<String, Object> response = new HashMap<>();
+        response.put("users", content);
+        response.put("currentPage", usersPage.getNumber());
+        response.put("totalItems", usersPage.getTotalElements());
+        response.put("totalPages", usersPage.getTotalPages());
+        
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/api/admin/coupons")
