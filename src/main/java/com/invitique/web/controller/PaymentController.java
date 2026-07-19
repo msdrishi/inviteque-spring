@@ -6,6 +6,7 @@ import com.invitique.domain.model.User;
 import com.invitique.domain.repository.CouponRepository;
 import com.invitique.domain.repository.InviteRepository;
 import com.invitique.service.InviteService;
+import com.invitique.service.EmailService;
 import com.razorpay.Order;
 import com.razorpay.RazorpayClient;
 import com.razorpay.Utils;
@@ -41,6 +42,7 @@ public class PaymentController {
     private final InviteRepository inviteRepository;
     private final InviteService inviteService;
     private final CouponRepository couponRepository;
+    private final EmailService emailService;
 
     @PostMapping("/order")
     public ResponseEntity<?> createOrder(
@@ -113,7 +115,17 @@ public class PaymentController {
                 return ResponseEntity.status(403).body(Map.of("message", "Unauthorized"));
             }
 
-            if (enabled) {
+            String couponCode = request.getCouponCode();
+            if ((couponCode == null || couponCode.trim().isEmpty()) && request.getInviteRequest() != null) {
+                couponCode = request.getInviteRequest().getCouponCode();
+            }
+
+            boolean isFree = false;
+            if (request.getAmountPaid() != null && Math.abs(request.getAmountPaid() - 0.0) < 1e-4) {
+                isFree = true;
+            }
+
+            if (enabled && !isFree) {
                 // Verify Razorpay signature
                 JSONObject options = new JSONObject();
                 options.put("razorpay_order_id", request.getRazorpayOrderId());
@@ -142,19 +154,25 @@ public class PaymentController {
             finalInvite.setAmountPaid(request.getAmountPaid() != null ? request.getAmountPaid() : 999.0);
             finalInvite.setPaidAt(LocalDateTime.now());
             
-            if (request.getCouponCode() != null && !request.getCouponCode().trim().isEmpty()) {
-                finalInvite.setCouponCode(request.getCouponCode().trim().toUpperCase());
+            if (couponCode != null && !couponCode.trim().isEmpty()) {
+                finalInvite.setCouponCode(couponCode.trim().toUpperCase());
                 
                 // Set the coupon as used / unavailable
-                couponRepository.findByCodeIgnoreCase(request.getCouponCode().trim()).ifPresent(coupon -> {
+                final String finalCouponCode = couponCode;
+                couponRepository.findByCodeIgnoreCase(couponCode.trim()).ifPresent(coupon -> {
                     coupon.setAvailable(false);
                     coupon.setPurchasedDate(LocalDateTime.now());
                     coupon.setInviteId(finalInvite.getId());
                     couponRepository.save(coupon);
                 });
             }
-            
             inviteRepository.save(finalInvite);
+
+            try {
+                emailService.sendOrderNotification(finalInvite, user);
+            } catch (Exception mailEx) {
+                log.error("Email notification sending failed: ", mailEx);
+            }
 
             return ResponseEntity.ok(Map.of("success", true, "message", "Payment verified and saved successfully"));
 
