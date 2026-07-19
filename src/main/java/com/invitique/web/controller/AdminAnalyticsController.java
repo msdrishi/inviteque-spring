@@ -13,11 +13,23 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -46,7 +58,11 @@ public class AdminAnalyticsController {
     }
 
     @GetMapping(value = "/api/public/meta/{templateId}/{code}")
-    public ResponseEntity<String> getInviteMeta(@PathVariable String templateId, @PathVariable String code) {
+    public ResponseEntity<String> getInviteMeta(
+            @PathVariable String templateId, 
+            @PathVariable String code, 
+            HttpServletRequest request) {
+        
         Optional<Invite> inviteOpt = inviteRepository.findByCode(code);
         if (inviteOpt.isEmpty()) {
             return ResponseEntity.status(404)
@@ -85,11 +101,17 @@ public class AdminAnalyticsController {
         String desc = "We invite you to celebrate the wedding ceremony of " + groom + " & " + bride + 
                       " on " + date + " at " + venue + (city != null ? ", " + city : "") + ". Click to view the interactive invitation website.";
 
-        // Premium template cover/screenshot image:
-        String imageUrl = "https://res.cloudinary.com/djbxuk2xr/image/upload/f_auto,q_auto/v1779029514/enlgamenyitexgthsrho.png"; // fallback/aura-of-elegance layout preview screenshot
-        if ("royal-wedding".equals(templateId) || "template-1".equals(templateId)) {
-            imageUrl = "https://res.cloudinary.com/djbxuk2xr/image/upload/f_auto,q_auto/v1780830584/bevo6p9kp87xs9glyczu.png";
+        // Construct the dynamic image URL served by the backend
+        String requestUrl = request.getRequestURL().toString();
+        String requestUri = request.getRequestURI();
+        String baseUrl = requestUrl.replace(requestUri, "");
+        
+        // Ensure HTTPS for production on Render
+        if (request.getHeader("X-Forwarded-Proto") != null) {
+            baseUrl = request.getHeader("X-Forwarded-Proto") + "://" + request.getServerName();
         }
+        
+        String imageUrl = baseUrl + "/api/public/meta/image/" + code + ".png";
         
         String html = "<!DOCTYPE html>\n" +
                "<html>\n" +
@@ -114,6 +136,123 @@ public class AdminAnalyticsController {
         return ResponseEntity.ok()
                 .header("Content-Type", "text/html; charset=UTF-8")
                 .body(html);
+    }
+
+    @GetMapping(value = "/api/public/meta/image/{code}.png", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> getInviteMetaImage(@PathVariable String code) {
+        Optional<Invite> inviteOpt = inviteRepository.findByCode(code);
+        if (inviteOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Invite invite = inviteOpt.get();
+
+        String groom = invite.getCoupleData() != null ? (String) invite.getCoupleData().get("groomName") : "Groom";
+        String bride = invite.getCoupleData() != null ? (String) invite.getCoupleData().get("brideName") : "Bride";
+        String templateId = invite.getTemplateId();
+
+        int width = 1200;
+        int height = 630;
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2d = image.createGraphics();
+
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+        Color bgColor;
+        Color textColor;
+        Color accentColor;
+        
+        if ("twilight-serenade".equals(templateId) || "template-2".equals(templateId)) {
+            bgColor = new Color(26, 36, 43); // Slate Blue
+            textColor = new Color(245, 237, 220); // Cream
+            accentColor = new Color(212, 175, 55); // Gold
+        } else if ("template-3".equals(templateId) || "blossom-whisper".equals(templateId)) {
+            bgColor = new Color(122, 0, 16); // Crimson Red
+            textColor = new Color(234, 216, 177); // Soft Cream
+            accentColor = new Color(212, 175, 55); // Bright Gold
+        } else {
+            bgColor = new Color(251, 247, 240); // Sage/Cream
+            textColor = new Color(61, 82, 54); // Sage Green
+            accentColor = new Color(212, 175, 55); // Gold
+        }
+
+        g2d.setColor(bgColor);
+        g2d.fillRect(0, 0, width, height);
+
+        // Double border
+        g2d.setColor(accentColor);
+        g2d.setStroke(new BasicStroke(4));
+        g2d.drawRect(20, 20, width - 40, height - 40);
+        g2d.setStroke(new BasicStroke(1));
+        g2d.drawRect(26, 26, width - 52, height - 52);
+
+        // Corner ornaments
+        drawCornerOrnament(g2d, 35, 35, 0, accentColor);
+        drawCornerOrnament(g2d, width - 35, 35, 90, accentColor);
+        drawCornerOrnament(g2d, 35, height - 35, 270, accentColor);
+        drawCornerOrnament(g2d, width - 35, height - 35, 180, accentColor);
+
+        // "WEDDING INVITATION" Header
+        g2d.setColor(accentColor);
+        g2d.setFont(new Font("Serif", Font.BOLD, 28));
+        String topLabel = "WEDDING INVITATION";
+        FontMetrics fm = g2d.getFontMetrics();
+        int topWidth = fm.stringWidth(topLabel);
+        g2d.drawString(topLabel, (width - topWidth) / 2, 140);
+
+        // Line Divider
+        g2d.setColor(accentColor);
+        g2d.setStroke(new BasicStroke(2));
+        g2d.drawLine(width/2 - 120, 175, width/2 + 120, 175);
+        g2d.fillOval(width/2 - 6, 170, 12, 12);
+
+        // Names
+        g2d.setColor(textColor);
+        g2d.setFont(new Font("Serif", Font.ITALIC | Font.BOLD, 72));
+        String coupleNames = groom + "  &  " + bride;
+        fm = g2d.getFontMetrics();
+        int namesWidth = fm.stringWidth(coupleNames);
+        g2d.drawString(coupleNames, (width - namesWidth) / 2, 330);
+
+        // Footer details
+        g2d.setColor(accentColor);
+        g2d.setFont(new Font("Serif", Font.PLAIN, 24));
+        String bottomLabel = "YOU ARE CORDIALLY INVITED";
+        fm = g2d.getFontMetrics();
+        int bottomWidth = fm.stringWidth(bottomLabel);
+        g2d.drawString(bottomLabel, (width - bottomWidth) / 2, 450);
+
+        g2d.setStroke(new BasicStroke(1));
+        g2d.drawLine(width/2 - 60, 485, width/2 + 60, 485);
+
+        g2d.dispose();
+
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            ImageIO.write(image, "png", baos);
+            byte[] imageBytes = baos.toByteArray();
+            return ResponseEntity.ok()
+                    .contentType(MediaType.IMAGE_PNG)
+                    .body(imageBytes);
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    private void drawCornerOrnament(Graphics2D g2d, int x, int y, int angleDegrees, Color color) {
+        g2d.setColor(color);
+        Graphics2D gCopy = (Graphics2D) g2d.create();
+        gCopy.translate(x, y);
+        gCopy.rotate(Math.toRadians(angleDegrees));
+        
+        int size = 45;
+        gCopy.setStroke(new BasicStroke(2));
+        gCopy.drawLine(0, 0, size, 0);
+        gCopy.drawLine(0, 0, 0, size);
+        gCopy.drawArc(-size/2, -size/2, size, size, 0, 90);
+        gCopy.drawOval(size - 10, -5, 10, 10);
+        gCopy.drawOval(-5, size - 10, 10, 10);
+        
+        gCopy.dispose();
     }
 
     @PostMapping("/api/public/analytics/visit")
