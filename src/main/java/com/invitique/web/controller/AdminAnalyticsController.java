@@ -482,13 +482,13 @@ public class AdminAnalyticsController {
             return ResponseEntity.badRequest().body(Map.of("message", "Discount percentage must be between 1 and 100."));
         }
 
-        String uppercaseCode = request.getCode().trim().toUpperCase();
-        if (couponRepository.findByCodeIgnoreCase(uppercaseCode).isPresent()) {
+        String code = request.getCode().trim();
+        if (couponRepository.findByCodeIgnoreCase(code).isPresent()) {
             return ResponseEntity.badRequest().body(Map.of("message", "Coupon code already exists."));
         }
 
         Coupon coupon = Coupon.builder()
-                .code(uppercaseCode)
+                .code(code)
                 .discountPercentage(request.getDiscountPercentage())
                 .isAvailable(true)
                 .build();
@@ -519,14 +519,14 @@ public class AdminAnalyticsController {
                     continue;
                 }
                 
-                String uppercaseCode = req.getCode().trim().toUpperCase();
-                if (couponRepository.findByCodeIgnoreCase(uppercaseCode).isPresent()) {
+                String code = req.getCode().trim();
+                if (couponRepository.findByCodeIgnoreCase(code).isPresent()) {
                     errors.add("Skipped code '" + req.getCode() + "': Already exists");
                     continue;
                 }
                 
                 Coupon coupon = Coupon.builder()
-                        .code(uppercaseCode)
+                        .code(code)
                         .discountPercentage(req.getDiscountPercentage())
                         .isAvailable(true)
                         .build();

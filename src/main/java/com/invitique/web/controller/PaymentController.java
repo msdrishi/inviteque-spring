@@ -155,7 +155,7 @@ public class PaymentController {
             finalInvite.setPaidAt(LocalDateTime.now());
             
             if (couponCode != null && !couponCode.trim().isEmpty()) {
-                finalInvite.setCouponCode(couponCode.trim().toUpperCase());
+                finalInvite.setCouponCode(couponCode.trim());
                 
                 // Set the coupon as used / unavailable
                 final String finalCouponCode = couponCode;
