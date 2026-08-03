@@ -21,7 +21,7 @@ public class EmailService {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom("inviteque.support@gmail.com");
-            message.setTo("inviteque.support@gmail.com");
+            message.setTo("rishiprasad543@gmail.com");
             message.setSubject("🔔 New Order Purchased - InviteQue: " + invite.getCode());
 
             String groomName = "N/A";
