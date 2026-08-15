@@ -120,10 +120,8 @@ public class AdminAnalyticsController {
                "    <title>" + title + "</title>\n" +
                "    <meta property=\"og:title\" content=\"" + title + "\">\n" +
                "    <meta property=\"og:description\" content=\"" + desc + "\">\n" +
-               "    <meta property=\"og:image\" content=\"" + imageUrl + "\">\n" +
                "    <meta property=\"og:url\" content=\"https://www.inviteque.com/templates/" + templateId + "/" + code + "\">\n" +
                "    <meta property=\"og:type\" content=\"website\">\n" +
-               "    <meta name=\"twitter:card\" content=\"summary_large_image\">\n" +
                "    <script>\n" +
                "        window.location.replace(\"https://www.inviteque.com/templates/" + templateId + "/" + code + "?redirected=true\");\n" +
                "    </script>\n" +
