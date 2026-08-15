@@ -217,6 +217,14 @@ public class InviteServiceImpl implements InviteService {
             // Merge scheduleData
             Map<String, Object> scheduleData = invite.getScheduleData() != null ? new java.util.HashMap<>(invite.getScheduleData()) : new java.util.HashMap<>();
             if (request.getEventSchedule() != null) scheduleData.put("items", request.getEventSchedule());
+            if (request.getScheduleData() != null) {
+                if (request.getScheduleData().get("showSchedule") != null) {
+                    scheduleData.put("showSchedule", request.getScheduleData().get("showSchedule"));
+                }
+                if (request.getScheduleData().get("showGallery") != null) {
+                    scheduleData.put("showGallery", request.getScheduleData().get("showGallery"));
+                }
+            }
             invite.setScheduleData(scheduleData);
         } else {
             // Fallback: merge JSONB maps
