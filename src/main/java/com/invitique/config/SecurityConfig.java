@@ -38,6 +38,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/templates").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/invites/*").permitAll()
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers("/api/images/**").permitAll()
                         // Admin endpoints
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // Protected
@@ -67,3 +68,4 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 }
+

@@ -30,12 +30,14 @@ public class Invite {
     @Column(nullable = false, unique = true, length = 10)
     private String code;
 
+    @Column(nullable = true, unique = true, length = 100)
+    private String slug;
+
     @Builder.Default
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private InviteStatus status = InviteStatus.DRAFT;
 
-    // JSONB columns for flexible wedding data
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "couple_data", columnDefinition = "jsonb")
     private Map<String, Object> coupleData;
@@ -68,8 +70,11 @@ public class Invite {
     @Column(name = "rsvp_data", columnDefinition = "jsonb")
     private Map<String, Object> rsvpData;
 
-    // Payment info
-    @Column(name = "razorpay_order_id")
+    
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "backup_data", columnDefinition = "jsonb")
+    private Map<String, Object> backupData;
+@Column(name = "razorpay_order_id")
     private String razorpayOrderId;
 
     @Column(name = "razorpay_payment_id")

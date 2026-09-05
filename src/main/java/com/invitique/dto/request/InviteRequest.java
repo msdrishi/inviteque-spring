@@ -15,6 +15,7 @@ import java.util.Map;
 public class InviteRequest {
     private String id; // Optional ID for updates
     private String code; // Optional unique code for updates
+    private String slug; // Human-readable slug for upsert (e.g. "Pavitra-Sri")
     private String templateId;
     private Map<String, Object> coupleData;
     private Map<String, Object> heroData;
@@ -35,9 +36,11 @@ public class InviteRequest {
     private Object weddingDate; // Can be Map with day/month/year or a String
     private String venueCity;
     private String venueName;
+    private String venueAddress;
     private String state;
     private String mapLink;
     private String weddingTime;
+    private String heroSubtitle;
     private List<String> photos;
     private List<Map<String, Object>> eventSchedule;
 }

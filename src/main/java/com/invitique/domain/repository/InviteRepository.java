@@ -12,7 +12,10 @@ import java.util.UUID;
 @Repository
 public interface InviteRepository extends JpaRepository<Invite, UUID> {
     Optional<Invite> findByCode(String code);
+    Optional<Invite> findBySlug(String slug);
+    Optional<Invite> findBySlugIgnoreCase(String slug);
     List<Invite> findByUser(User user);
     List<Invite> findByUserOrderByCreatedAtDesc(User user);
     boolean existsByCode(String code);
+    boolean existsBySlug(String slug);
 }

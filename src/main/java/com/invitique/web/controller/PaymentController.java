@@ -64,11 +64,18 @@ public class PaymentController {
                 return ResponseEntity.status(403).body(Map.of("message", "Unauthorized"));
             }
 
-            double amountInRupees = 999.0;
-            double finalPrice = amountInRupees;
-            if (request.getDiscountPercentage() != null) {
-                double discount = (amountInRupees * request.getDiscountPercentage()) / 100.0;
-                finalPrice = amountInRupees - discount;
+            // Use the exact amount from the frontend (already includes discounts)
+            // Fall back to 999.0 only if no amount is provided (legacy behavior)
+            double finalPrice;
+            if (request.getAmount() != null) {
+                finalPrice = request.getAmount();
+            } else {
+                double amountInRupees = 999.0;
+                finalPrice = amountInRupees;
+                if (request.getDiscountPercentage() != null) {
+                    double discount = (amountInRupees * request.getDiscountPercentage()) / 100.0;
+                    finalPrice = amountInRupees - discount;
+                }
             }
             
             int amountInPaise = (int) Math.round(finalPrice * 100.0);
@@ -186,6 +193,7 @@ public class PaymentController {
     public static class OrderRequest {
         private String code;
         private Integer discountPercentage;
+        private Double amount;
     }
 
     @Data
@@ -199,3 +207,4 @@ public class PaymentController {
         private com.invitique.dto.request.InviteRequest inviteRequest;
     }
 }
+

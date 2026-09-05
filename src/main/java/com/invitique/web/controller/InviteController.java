@@ -45,6 +45,11 @@ public class InviteController {
         ));
     }
 
+    /**
+     * Public endpoint: fetches invite by UUID, code, or slug.
+     * PAID invites are publicly accessible (no auth needed).
+     * DRAFT invites require the owner to be authenticated.
+     */
     @GetMapping("/{idOrCode}")
     public ResponseEntity<?> getInvite(
             @PathVariable String idOrCode,
@@ -54,23 +59,24 @@ public class InviteController {
             UUID uuid = UUID.fromString(idOrCode);
             inviteOpt = inviteService.getInviteById(uuid);
         } catch (IllegalArgumentException e) {
+            // Not a UUID — try by code or slug
             inviteOpt = inviteService.getInviteByCode(idOrCode);
         }
-        
+
         if (inviteOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        
+
         Invite invite = inviteOpt.get();
-        
-        // If it is a draft, only the owner can view it
+
+        // DRAFT invites: only the owner can view
         if (invite.getStatus() == Invite.InviteStatus.DRAFT) {
             if (user == null || !invite.getUser().getId().equals(user.getId())) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body(Map.of("message", "Only the owner can view draft invitations"));
             }
         }
-        
+
         return ResponseEntity.ok(mapToResponse(invite));
     }
 
@@ -112,11 +118,11 @@ public class InviteController {
         String groom = invite.getCoupleData() != null ? (String) invite.getCoupleData().get("groomName") : null;
         String bride = invite.getCoupleData() != null ? (String) invite.getCoupleData().get("brideName") : null;
         String coupleNames = (groom != null && bride != null) ? groom + " & " + bride : null;
-        
+
         String mahal = invite.getVenueData() != null ? (String) invite.getVenueData().get("mahalName") : null;
         String city = invite.getVenueData() != null ? (String) invite.getVenueData().get("venueCity") : null;
-        String address = invite.getVenueData() != null ? (String) invite.getVenueData().get("venueAddress") : null;
-        
+        String venueName = invite.getVenueData() != null ? (String) invite.getVenueData().get("venueName") : null;
+
         Map<String, String> dateMap = null;
         if (invite.getHeroData() != null) {
             dateMap = new java.util.HashMap<>();
@@ -124,7 +130,7 @@ public class InviteController {
             dateMap.put("month", (String) invite.getHeroData().get("weddingMonth"));
             dateMap.put("year", (String) invite.getHeroData().get("weddingYear"));
         }
-        
+
         List<String> photosList = null;
         if (invite.getStoryData() != null) {
             Object photosObj = invite.getStoryData().get("photos");
@@ -132,7 +138,7 @@ public class InviteController {
                 photosList = (List<String>) photosObj;
             }
         }
-        
+
         List<Map<String, Object>> scheduleList = null;
         if (invite.getScheduleData() != null) {
             Object itemsObj = invite.getScheduleData().get("items");
@@ -147,6 +153,7 @@ public class InviteController {
                 .success(true)
                 .templateId(invite.getTemplateId())
                 .code(invite.getCode())
+                .slug(invite.getSlug())
                 .status(invite.getStatus().name())
                 .coupleData(invite.getCoupleData())
                 .heroData(invite.getHeroData())
@@ -163,7 +170,7 @@ public class InviteController {
                 .mahalName(mahal)
                 .weddingDate(dateMap)
                 .venueCity(city)
-                .venueName(address)
+                .venueName(venueName)
                 .photos(photosList)
                 .eventSchedule(scheduleList)
                 .build();

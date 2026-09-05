@@ -15,10 +15,11 @@ import java.util.UUID;
 @AllArgsConstructor
 public class InviteResponse {
     private UUID id;
-    private UUID inviteId; // Expectation endpoint: inviteId
-    private Boolean success; // Expectation endpoint: success status
+    private UUID inviteId;
+    private Boolean success;
     private String templateId;
     private String code;
+    private String slug;
     private String status;
     private Map<String, Object> coupleData;
     private Map<String, Object> heroData;
@@ -30,7 +31,7 @@ public class InviteResponse {
     private Map<String, Object> rsvpData;
     private java.time.LocalDateTime createdAt;
 
-    // Flat fields populated dynamically from JSONB data for Modern Builder integration
+    // Flat fields populated dynamically from JSONB data
     private String coupleNames;
     private String groomName;
     private String brideName;
