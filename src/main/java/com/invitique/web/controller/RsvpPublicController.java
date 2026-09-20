@@ -29,4 +29,22 @@ public class RsvpPublicController {
         RsvpPublicConfigResponse config = rsvpService.getPublicRsvpConfig(code, group);
         return ResponseEntity.ok(config);
     }
+
+    @GetMapping("/weddings/{code}/rsvp-summary")
+    public ResponseEntity<com.invitique.dto.rsvp.RsvpSummaryResponse> getPublicRsvpSummary(@PathVariable String code) {
+        com.invitique.dto.rsvp.RsvpSummaryResponse summary = rsvpService.getPublicRsvpSummary(code);
+        return ResponseEntity.ok(summary);
+    }
+
+    @GetMapping("/weddings/{code}/rsvps")
+    public ResponseEntity<java.util.List<com.invitique.dto.rsvp.RsvpDetailResponse>> getPublicRsvps(@PathVariable String code) {
+        java.util.List<com.invitique.dto.rsvp.RsvpDetailResponse> responses = rsvpService.getPublicRsvps(code);
+        return ResponseEntity.ok(responses);
+    }
+
+    @GetMapping(value = "/weddings/{code}/rsvps/export", produces = "text/csv")
+    public ResponseEntity<String> exportRsvpsCsv(@PathVariable String code) {
+        String csvData = rsvpService.getPublicExportRsvpsCsv(code);
+        return ResponseEntity.ok(csvData);
+    }
 }

@@ -13,6 +13,9 @@ public interface RsvpService {
     RsvpSubmissionResponse submitRsvp(RsvpSubmissionRequest request);
     RsvpPublicConfigResponse getPublicRsvpConfig(String code, String groupSlug);
     RsvpSummaryResponse getRsvpSummary(User user, String code);
+    RsvpSummaryResponse getPublicRsvpSummary(String code);
+    List<RsvpDetailResponse> getPublicRsvps(String code);
+    String getPublicExportRsvpsCsv(String code);
     Page<RsvpDetailResponse> getRsvps(User user, String code, String status, UUID groupId, String search, Pageable pageable);
     RsvpDetailResponse getRsvpById(User user, String code, UUID rsvpId);
     String exportRsvpsCsv(User user, String code);

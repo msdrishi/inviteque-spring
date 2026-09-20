@@ -213,6 +213,106 @@ public class RsvpServiceImpl implements RsvpService {
 
     @Override
     @Transactional(readOnly = true)
+    public RsvpSummaryResponse getPublicRsvpSummary(String code) {
+        Invite invite = inviteRepository.findByCode(code.trim().toUpperCase())
+                .orElseThrow(() -> new RuntimeException("Invite not found for code: " + code));
+
+        long totalResponses = rsvpRepository.countTotalByWeddingId(invite.getId());
+        long attending = rsvpRepository.countByWeddingIdAndStatus(invite.getId(), "yes");
+        long declined = rsvpRepository.countByWeddingIdAndStatus(invite.getId(), "no");
+        long maybe = rsvpRepository.countByWeddingIdAndStatus(invite.getId(), "maybe");
+        long totalAttendingGuests = rsvpRepository.sumAttendingGuestsByWeddingId(invite.getId());
+        long totalPossibleGuests = rsvpRepository.sumTotalGuestsByWeddingId(invite.getId());
+
+        List<WeddingEvent> events = weddingEventRepository.findByWeddingOrderBySortOrderAscCreatedAtAsc(invite);
+        List<RsvpSummaryResponse.EventCountDto> eventCounts = new ArrayList<>();
+
+        for (WeddingEvent ev : events) {
+            long evAttending = rsvpEventResponseRepository.countAttendingByEventId(ev.getId());
+            long evDeclined = rsvpEventResponseRepository.countDeclinedByEventId(ev.getId());
+            long evMaybe = rsvpEventResponseRepository.countMaybeByEventId(ev.getId());
+
+            eventCounts.add(RsvpSummaryResponse.EventCountDto.builder()
+                    .eventId(ev.getId())
+                    .eventName(ev.getName())
+                    .eventDate(ev.getEventDate())
+                    .eventTime(ev.getEventTime())
+                    .attending(evAttending)
+                    .declined(evDeclined)
+                    .maybe(evMaybe)
+                    .build());
+        }
+
+        return RsvpSummaryResponse.builder()
+                .totalResponses(totalResponses)
+                .attending(attending)
+                .declined(declined)
+                .maybe(maybe)
+                .totalAttendingGuests(totalAttendingGuests)
+                .totalPossibleGuests(totalPossibleGuests)
+                .eventCounts(eventCounts)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String getPublicExportRsvpsCsv(String code) {
+        Invite invite = inviteRepository.findByCode(code.trim().toUpperCase())
+                .orElseThrow(() -> new RuntimeException("Invite not found for code: " + code));
+
+        List<Rsvp> rsvps = rsvpRepository.findByWeddingOrderBySubmittedAtDesc(invite);
+        List<UUID> rsvpIds = rsvps.stream().map(Rsvp::getId).collect(Collectors.toList());
+        Map<UUID, List<RsvpEventResponse>> eventResponsesMap = Collections.emptyMap();
+        if (!rsvpIds.isEmpty()) {
+            List<RsvpEventResponse> allResponses = rsvpEventResponseRepository.findByRsvpIds(rsvpIds);
+            eventResponsesMap = allResponses.stream().collect(Collectors.groupingBy(r -> r.getRsvp().getId()));
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Guest Name,Attendance Status,Guest Count,Guest Group,Invitation Link,Events Attended,Meal Preference,Accommodation Needed,Dietary Notes,Message,Submitted At\n");
+
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        for (Rsvp r : rsvps) {
+            String groupName = r.getGuestGroup() != null ? r.getGuestGroup().getName() : "General";
+            String linkSlug = r.getInvitationLink() != null ? r.getInvitationLink().getSlug() : "";
+            
+            List<RsvpEventResponse> evList = eventResponsesMap.getOrDefault(r.getId(), Collections.emptyList());
+            String eventsAttended = evList.stream()
+                    .filter(e -> "yes".equalsIgnoreCase(e.getResponse()))
+                    .map(e -> e.getEvent().getName())
+                    .collect(Collectors.joining("; "));
+
+            String submitted = r.getSubmittedAt() != null ? r.getSubmittedAt().format(dtf) : "";
+
+            sb.append(escapeCsv(r.getGuestName())).append(",")
+                    .append(escapeCsv(r.getAttendanceStatus())).append(",")
+                    .append(r.getGuestCount()).append(",")
+                    .append(escapeCsv(groupName)).append(",")
+                    .append(escapeCsv(linkSlug)).append(",")
+                    .append(escapeCsv(eventsAttended)).append(",")
+                    .append(escapeCsv(r.getMealPreference() != null ? r.getMealPreference() : "")).append(",")
+                    .append(Boolean.TRUE.equals(r.getAccommodationNeeded()) ? "Yes" : "No").append(",")
+                    .append(escapeCsv(r.getDietaryNotes() != null ? r.getDietaryNotes() : "")).append(",")
+                    .append(escapeCsv(r.getMessage() != null ? r.getMessage() : "")).append(",")
+                    .append(escapeCsv(submitted)).append("\n");
+        }
+
+        return sb.toString();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<RsvpDetailResponse> getPublicRsvps(String code) {
+        Invite invite = inviteRepository.findByCode(code.trim().toUpperCase())
+                .orElseThrow(() -> new RuntimeException("Invite not found for code: " + code));
+
+        List<Rsvp> rsvps = rsvpRepository.findByWeddingOrderBySubmittedAtDesc(invite);
+        return rsvps.stream().map(r -> mapToDetailResponse(r, rsvpEventResponseRepository.findByRsvp(r))).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public RsvpSummaryResponse getRsvpSummary(User user, String code) {
         Invite invite = verifyAndGetInvite(user, code);
 
