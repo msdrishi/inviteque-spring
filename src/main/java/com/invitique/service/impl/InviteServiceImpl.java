@@ -29,8 +29,6 @@ public class InviteServiceImpl implements InviteService {
     @Override
     @Transactional
     public Invite createOrUpdateInvite(User user, InviteRequest request) {
-        Invite invite;
-
         Invite invite = null;
 
         // Priority 1: Look up by id if provided (most specific for updates)
