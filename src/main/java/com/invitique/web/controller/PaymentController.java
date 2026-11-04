@@ -148,8 +148,14 @@ public class PaymentController {
             // Save the invitation details passed in the request (or update status)
             Invite finalInvite;
             if (request.getInviteRequest() != null) {
-                // Force status to PAID
+                // Force status to PAID and link to the existing invite
                 request.getInviteRequest().setStatus("PAID");
+                if (request.getInviteRequest().getId() == null && invite.getId() != null) {
+                    request.getInviteRequest().setId(invite.getId().toString());
+                }
+                if (request.getInviteRequest().getCode() == null && invite.getCode() != null) {
+                    request.getInviteRequest().setCode(invite.getCode());
+                }
                 finalInvite = inviteService.createOrUpdateInvite(user, request.getInviteRequest());
             } else {
                 invite.setStatus(Invite.InviteStatus.PAID);

@@ -4,6 +4,15 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:rishi2001}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 300000
+      max-lifetime: 600000
+      connection-timeout: 30000
+      keepalive-time: 30000
+      validation-timeout: 5000
+      connection-test-query: SELECT 1
   mail:
     host: smtp.gmail.com
     port: 587

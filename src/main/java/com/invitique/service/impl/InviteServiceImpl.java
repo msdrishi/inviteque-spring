@@ -31,62 +31,52 @@ public class InviteServiceImpl implements InviteService {
     public Invite createOrUpdateInvite(User user, InviteRequest request) {
         Invite invite;
 
-        // Priority 1: Look up by slug (human-readable, e.g. "Pavitra-Sri")
-        if (request.getSlug() != null && !request.getSlug().isBlank()) {
-            Optional<Invite> bySlug = inviteRepository.findBySlugIgnoreCase(request.getSlug());
-            if (bySlug.isPresent()) {
-                invite = bySlug.get();
-                // Security: only owner can update
-                if (!invite.getUser().getId().equals(user.getId())) {
-                    throw new RuntimeException("Unauthorized to update this invite");
+        Invite invite = null;
+
+        // Priority 1: Look up by id if provided (most specific for updates)
+        if (request.getId() != null && !request.getId().isBlank()) {
+            try {
+                UUID id = UUID.fromString(request.getId());
+                Optional<Invite> byId = inviteRepository.findById(id);
+                if (byId.isPresent()) {
+                    invite = byId.get();
+                    if (!invite.getUser().getId().equals(user.getId())) {
+                        throw new RuntimeException("Unauthorized to update this invite");
+                    }
                 }
-            } else {
-                // Create new invite with this slug
-                invite = new Invite();
-                invite.setUser(user);
-                invite.setCode(generateUniqueCode());
-                invite.setSlug(request.getSlug());
-            }
+            } catch (IllegalArgumentException ignored) {}
         }
+
         // Priority 2: Look up by code
-        else if (request.getCode() != null && !request.getCode().isBlank()) {
+        if (invite == null && request.getCode() != null && !request.getCode().isBlank()) {
             Optional<Invite> byCode = inviteRepository.findByCode(request.getCode().toUpperCase());
             if (byCode.isPresent()) {
                 invite = byCode.get();
                 if (!invite.getUser().getId().equals(user.getId())) {
                     throw new RuntimeException("Unauthorized to update this invite");
                 }
-            } else {
-                // Create new invite
-                invite = new Invite();
-                invite.setUser(user);
-                invite.setCode(generateUniqueCode());
             }
         }
-        // Priority 3: Look up by id
-        else if (request.getId() != null) {
-            UUID id;
-            try {
-                id = UUID.fromString(request.getId());
-            } catch (IllegalArgumentException e) {
-                id = null;
-            }
-            if (id != null) {
-                invite = inviteRepository.findById(id)
-                        .orElseThrow(() -> new RuntimeException("Invite not found with id: " + request.getId()));
+
+        // Priority 3: Look up by slug (human-readable, e.g. "Pavitra-Sri")
+        if (invite == null && request.getSlug() != null && !request.getSlug().isBlank()) {
+            Optional<Invite> bySlug = inviteRepository.findBySlugIgnoreCase(request.getSlug());
+            if (bySlug.isPresent()) {
+                invite = bySlug.get();
                 if (!invite.getUser().getId().equals(user.getId())) {
                     throw new RuntimeException("Unauthorized to update this invite");
                 }
-            } else {
-                invite = new Invite();
-                invite.setUser(user);
-                invite.setCode(generateUniqueCode());
             }
-        } else {
-            // Create new invite
+        }
+
+        // Priority 4: Fallback - Create new invite
+        if (invite == null) {
             invite = new Invite();
             invite.setUser(user);
             invite.setCode(generateUniqueCode());
+            if (request.getSlug() != null && !request.getSlug().isBlank()) {
+                invite.setSlug(request.getSlug());
+            }
         }
 
         if (request.getStatus() != null) {
