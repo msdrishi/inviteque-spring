@@ -38,6 +38,10 @@ public class Invite {
     @Enumerated(EnumType.STRING)
     private InviteStatus status = InviteStatus.DRAFT;
 
+    @Builder.Default
+    @Column(name = "has_rsvp", nullable = false)
+    private Boolean hasRsvp = false;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "couple_data", columnDefinition = "jsonb")
     private Map<String, Object> coupleData;

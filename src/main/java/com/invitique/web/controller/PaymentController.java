@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -43,6 +44,8 @@ public class PaymentController {
     private final InviteService inviteService;
     private final CouponRepository couponRepository;
     private final EmailService emailService;
+    private final com.invitique.domain.repository.TemplateRepository templateRepository;
+    private final com.invitique.service.RsvpService rsvpService;
 
     @PostMapping("/order")
     public ResponseEntity<?> createOrder(
@@ -64,18 +67,33 @@ public class PaymentController {
                 return ResponseEntity.status(403).body(Map.of("message", "Unauthorized"));
             }
 
-            // Use the exact amount from the frontend (already includes discounts)
-            // Fall back to 999.0 only if no amount is provided (legacy behavior)
-            double finalPrice;
-            if (request.getAmount() != null) {
-                finalPrice = request.getAmount();
-            } else {
-                double amountInRupees = 999.0;
-                finalPrice = amountInRupees;
-                if (request.getDiscountPercentage() != null) {
-                    double discount = (amountInRupees * request.getDiscountPercentage()) / 100.0;
-                    finalPrice = amountInRupees - discount;
+            boolean isTemplatePaid = invite.getStatus() == Invite.InviteStatus.PAID;
+            boolean alreadyHasRsvp = Boolean.TRUE.equals(invite.getHasRsvp());
+            boolean wantsRsvp = Boolean.TRUE.equals(request.getWantsRsvp());
+
+            // Query dynamic base template price from master templates table with catalog fallback
+            double baseTemplatePrice = resolveBasePrice(invite.getTemplateId());
+
+            double templateCharge = isTemplatePaid ? 0.0 : baseTemplatePrice;
+            double rsvpCharge = (isTemplatePaid ? (!alreadyHasRsvp && wantsRsvp) : wantsRsvp) ? 500.0 : 0.0;
+            double calculatedBaseTotal = templateCharge + rsvpCharge;
+
+            // Handle coupon validation securely on backend
+            double discount = 0.0;
+            String couponCode = request.getCouponCode();
+            if (couponCode != null && !couponCode.trim().isEmpty()) {
+                Optional<Coupon> couponOpt = couponRepository.findByCodeIgnoreCase(couponCode.trim());
+                if (couponOpt.isPresent() && couponOpt.get().isAvailable()) {
+                    discount = (calculatedBaseTotal * couponOpt.get().getDiscountPercentage()) / 100.0;
                 }
+            } else if (request.getDiscountPercentage() != null && request.getDiscountPercentage() > 0) {
+                discount = (calculatedBaseTotal * request.getDiscountPercentage()) / 100.0;
+            }
+
+            double finalPrice = Math.max(0.0, calculatedBaseTotal - discount);
+            // If already fully paid and nothing to charge
+            if (isTemplatePaid && (alreadyHasRsvp || !wantsRsvp)) {
+                finalPrice = 0.0;
             }
             
             int amountInPaise = (int) Math.round(finalPrice * 100.0);
@@ -162,9 +180,32 @@ public class PaymentController {
                 finalInvite = invite;
             }
             
+            boolean isTemplatePaid = invite.getStatus() == Invite.InviteStatus.PAID;
+            boolean alreadyHasRsvp = Boolean.TRUE.equals(invite.getHasRsvp());
+            boolean wantsRsvp = request.getInviteRequest() != null
+                    ? (Boolean.TRUE.equals(request.getInviteRequest().getHasRsvp()) ||
+                       (request.getInviteRequest().getRsvpData() != null && Boolean.TRUE.equals(request.getInviteRequest().getRsvpData().get("enabled"))))
+                    : false;
+
+            boolean grantRsvp = alreadyHasRsvp || (wantsRsvp && ((request.getAmountPaid() != null && request.getAmountPaid() >= 500.0) || isFree || !enabled));
+
+            finalInvite.setHasRsvp(grantRsvp);
+
+            Map<String, Object> rData = finalInvite.getRsvpData() != null ? new java.util.HashMap<>(finalInvite.getRsvpData()) : new java.util.HashMap<>();
+            rData.put("hasRsvp", grantRsvp);
+            rData.put("isPaid", grantRsvp);
+            rData.put("enabled", grantRsvp);
+            finalInvite.setRsvpData(rData);
+
+            Map<String, Object> iData = finalInvite.getInvitationData() != null ? new java.util.HashMap<>(finalInvite.getInvitationData()) : new java.util.HashMap<>();
+            iData.put("hasRsvp", grantRsvp);
+            iData.put("isRsvpPaid", grantRsvp);
+            finalInvite.setInvitationData(iData);
+
             finalInvite.setRazorpayOrderId(request.getRazorpayOrderId());
             finalInvite.setRazorpayPaymentId(request.getRazorpayPaymentId());
-            finalInvite.setAmountPaid(request.getAmountPaid() != null ? request.getAmountPaid() : 999.0);
+            double totalPaid = (finalInvite.getAmountPaid() != null ? finalInvite.getAmountPaid() : 0.0) + (request.getAmountPaid() != null ? request.getAmountPaid() : 0.0);
+            finalInvite.setAmountPaid(totalPaid > 0 ? totalPaid : (request.getAmountPaid() != null ? request.getAmountPaid() : 2499.0));
             finalInvite.setPaidAt(LocalDateTime.now());
             
             if (couponCode != null && !couponCode.trim().isEmpty()) {
@@ -182,6 +223,12 @@ public class PaymentController {
             inviteRepository.save(finalInvite);
 
             try {
+                rsvpService.syncEventsFromScheduleData(finalInvite);
+            } catch (Exception syncEx) {
+                log.warn("Failed to sync RSVP events upon payment verification: ", syncEx);
+            }
+
+            try {
                 emailService.sendOrderNotification(finalInvite, user);
             } catch (Exception mailEx) {
                 log.error("Email notification sending failed: ", mailEx);
@@ -195,11 +242,74 @@ public class PaymentController {
         }
     }
 
+    private double resolveBasePrice(String templateId) {
+        if (templateId == null || templateId.trim().isEmpty()) {
+            return 2499.0;
+        }
+        String tid = templateId.trim().toLowerCase();
+
+        // 1. Check database first - primary persistent source of truth
+        Optional<com.invitique.domain.model.Template> tmplOpt = templateRepository.findByIdIgnoreCase(tid);
+        if (tmplOpt.isPresent() && tmplOpt.get().getPrice() != null && tmplOpt.get().getPrice() > 0) {
+            return tmplOpt.get().getPrice() / 100.0;
+        }
+
+        // Canonical catalog price mapping
+        switch (tid) {
+            case "southern-serenade":
+            case "rajasthani-vows":
+            case "rajestani-vows":
+            case "royal-heritage":
+            case "pink-blossom":
+            case "midnight-waltz":
+            case "royal-heirloom":
+                return 2499.0;
+
+            case "aura-of-elegance":
+            case "template-1":
+            case "twilight-serenade":
+            case "template-2":
+            case "sunflower-fields":
+            case "sunflowerfields":
+            case "template-3":
+            case "blossom-whisper":
+            case "everlastingvows":
+            case "everlasting-vows":
+            case "template-4":
+            case "modernhearth":
+            case "modern-hearth":
+            case "enchanted-forest":
+            case "template-8":
+            case "modern-muse":
+            case "template-10":
+            case "earthy-whispers":
+            case "template-11":
+            case "coastal-serenity":
+            case "template-12":
+            case "template-5":
+            case "celestial-union":
+            case "template-6":
+            case "infinite-journey":
+            case "template-7":
+            case "template-9":
+            case "house-warming-1":
+            case "house-warming-2":
+            case "house-warming-3":
+            case "royal-palace":
+                return 1999.0;
+
+            default:
+                return 2499.0;
+        }
+    }
+
     @Data
     public static class OrderRequest {
         private String code;
         private Integer discountPercentage;
         private Double amount;
+        private Boolean wantsRsvp;
+        private String couponCode;
     }
 
     @Data
@@ -213,4 +323,3 @@ public class PaymentController {
         private com.invitique.dto.request.InviteRequest inviteRequest;
     }
 }
-

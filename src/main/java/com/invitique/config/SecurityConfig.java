@@ -35,7 +35,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/auth/oauth2/callback/*").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
-                        .requestMatchers("/api/templates").permitAll()
+                        .requestMatchers("/api/templates", "/api/templates/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/invites/*").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/api/images/**").permitAll()

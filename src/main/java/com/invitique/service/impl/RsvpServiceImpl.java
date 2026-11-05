@@ -44,6 +44,22 @@ public class RsvpServiceImpl implements RsvpService {
         Invite invite = inviteRepository.findByCode(request.getWeddingCode().trim().toUpperCase())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Wedding invitation not found"));
 
+        if (!Boolean.TRUE.equals(invite.getHasRsvp())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "RSVP has not been purchased for this invitation");
+        }
+
+        boolean showRsvp = true;
+        if (invite.getRsvpData() != null) {
+            if (invite.getRsvpData().containsKey("showRsvp")) {
+                showRsvp = Boolean.TRUE.equals(invite.getRsvpData().get("showRsvp"));
+            } else if (invite.getRsvpData().containsKey("enabled")) {
+                showRsvp = Boolean.TRUE.equals(invite.getRsvpData().get("enabled"));
+            }
+        }
+        if (!showRsvp) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "RSVP is currently closed by the couple");
+        }
+
         syncEventsFromScheduleData(invite);
 
         if (request.getIdempotencyKey() != null && !request.getIdempotencyKey().trim().isEmpty()) {
@@ -139,9 +155,35 @@ public class RsvpServiceImpl implements RsvpService {
         Invite invite = inviteRepository.findByCode(code.trim().toUpperCase())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Wedding invitation not found"));
 
+        boolean hasRsvp = Boolean.TRUE.equals(invite.getHasRsvp());
+        if (!hasRsvp) {
+            return RsvpPublicConfigResponse.builder()
+                    .enabled(false)
+                    .title("RSVP Not Available")
+                    .description("RSVP is not enabled for this invitation.")
+                    .events(Collections.emptyList())
+                    .build();
+        }
+
         Map<String, Object> rsvpData = invite.getRsvpData() != null ? invite.getRsvpData() : Collections.emptyMap();
 
-        boolean enabled = rsvpData.containsKey("enabled") ? Boolean.TRUE.equals(rsvpData.get("enabled")) : true;
+        boolean showRsvp = true;
+        if (rsvpData.containsKey("showRsvp")) {
+            showRsvp = Boolean.TRUE.equals(rsvpData.get("showRsvp"));
+        } else if (rsvpData.containsKey("enabled")) {
+            showRsvp = Boolean.TRUE.equals(rsvpData.get("enabled"));
+        }
+
+        if (!showRsvp) {
+            return RsvpPublicConfigResponse.builder()
+                    .enabled(false)
+                    .title("RSVP Closed")
+                    .description("RSVP is currently closed by the couple.")
+                    .events(Collections.emptyList())
+                    .build();
+        }
+
+        boolean enabled = true;
         String title = (String) rsvpData.getOrDefault("title", "We'd Love to Celebrate With You");
         String description = (String) rsvpData.getOrDefault("description", "Please let us know if you will be able to join our celebration.");
         String successTitle = (String) rsvpData.getOrDefault("successTitle", "RSVP Submitted Successfully ❤️");
@@ -155,6 +197,7 @@ public class RsvpServiceImpl implements RsvpService {
         boolean allowAccommodation = Boolean.TRUE.equals(rsvpData.get("allowAccommodation"));
         Integer maxGuests = rsvpData.containsKey("maxGuests") ? ((Number) rsvpData.get("maxGuests")).intValue() : 10;
 
+        syncEventsFromScheduleData(invite);
         List<WeddingEvent> allEvents = weddingEventRepository.findByWeddingOrderBySortOrderAscCreatedAtAsc(invite);
         if (allEvents.isEmpty()) {
             allEvents = generateEventsFromScheduleData(invite);
@@ -532,11 +575,80 @@ public class RsvpServiceImpl implements RsvpService {
     @Override
     @Transactional
     public void syncEventsFromScheduleData(Invite invite) {
-        List<WeddingEvent> existing = weddingEventRepository.findByWeddingOrderBySortOrderAscCreatedAtAsc(invite);
-        if (!existing.isEmpty()) {
+        if (invite == null) return;
+
+        List<Map<String, Object>> items = null;
+        if (invite.getScheduleData() != null) {
+            Object itemsObj = invite.getScheduleData().get("items");
+            if (itemsObj instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> castList = (List<Map<String, Object>>) itemsObj;
+                items = castList;
+            }
+        }
+
+        if (items == null || items.isEmpty()) {
             return;
         }
-        generateEventsFromScheduleData(invite);
+
+        List<WeddingEvent> existing = weddingEventRepository.findByWeddingOrderBySortOrderAscCreatedAtAsc(invite);
+
+        int order = 0;
+        for (int i = 0; i < items.size(); i++) {
+            Map<String, Object> item = items.get(i);
+            String title = (String) item.get("title");
+            if (title == null || title.trim().isEmpty()) {
+                title = (String) item.get("name");
+            }
+            String time = (String) item.get("time");
+            String date = (String) item.get("date");
+            String desc = (String) item.get("description");
+
+            if (title != null && !title.trim().isEmpty()) {
+                if (i < existing.size()) {
+                    // Update existing event details in-place
+                    WeddingEvent ev = existing.get(i);
+                    ev.setName(title.trim());
+                    ev.setEventDate(date);
+                    ev.setEventTime(time);
+                    if (desc != null) ev.setAddress(desc);
+                    ev.setSortOrder(order++);
+                    ev.setIsActive(true);
+                    weddingEventRepository.save(ev);
+                } else {
+                    // Add newly added event
+                    WeddingEvent ev = WeddingEvent.builder()
+                            .wedding(invite)
+                            .name(title.trim())
+                            .eventDate(date)
+                            .eventTime(time)
+                            .address(desc)
+                            .sortOrder(order++)
+                            .isActive(true)
+                            .build();
+                    weddingEventRepository.save(ev);
+                }
+            }
+        }
+
+        // If events were deleted from the schedule, soft-delete or remove surplus events
+        if (existing.size() > items.size()) {
+            for (int i = items.size(); i < existing.size(); i++) {
+                WeddingEvent surplus = existing.get(i);
+                try {
+                    long responseCount = rsvpEventResponseRepository.countAttendingByEventId(surplus.getId());
+                    if (responseCount > 0) {
+                        surplus.setIsActive(false);
+                        weddingEventRepository.save(surplus);
+                    } else {
+                        weddingEventRepository.delete(surplus);
+                    }
+                } catch (Exception ex) {
+                    surplus.setIsActive(false);
+                    weddingEventRepository.save(surplus);
+                }
+            }
+        }
     }
 
     private List<WeddingEvent> generateEventsFromScheduleData(Invite invite) {

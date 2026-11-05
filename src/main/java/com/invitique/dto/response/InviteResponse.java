@@ -21,6 +21,9 @@ public class InviteResponse {
     private String code;
     private String slug;
     private String status;
+    private Boolean hasRsvp;
+    private Boolean showRsvp;
+    private Boolean showWeddingSchedule;
     private Map<String, Object> coupleData;
     private Map<String, Object> heroData;
     private Map<String, Object> storyData;

@@ -113,6 +113,107 @@ public class InviteController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/{idOrCode}/features")
+    public ResponseEntity<Map<String, Object>> getInviteFeatures(@PathVariable String idOrCode) {
+        Optional<Invite> inviteOpt;
+        try {
+            UUID uuid = UUID.fromString(idOrCode);
+            inviteOpt = inviteService.getInviteById(uuid);
+        } catch (IllegalArgumentException e) {
+            inviteOpt = inviteService.getInviteByCode(idOrCode);
+        }
+
+        if (inviteOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Invite invite = inviteOpt.get();
+        boolean hasRsvp = Boolean.TRUE.equals(invite.getHasRsvp());
+        
+        boolean showRsvp = true;
+        if (invite.getRsvpData() != null && invite.getRsvpData().containsKey("showRsvp")) {
+            showRsvp = Boolean.TRUE.equals(invite.getRsvpData().get("showRsvp"));
+        } else if (invite.getRsvpData() != null && invite.getRsvpData().containsKey("enabled")) {
+            showRsvp = Boolean.TRUE.equals(invite.getRsvpData().get("enabled"));
+        }
+
+        boolean showWeddingSchedule = true;
+        if (invite.getScheduleData() != null && invite.getScheduleData().containsKey("showWeddingSchedule")) {
+            showWeddingSchedule = Boolean.TRUE.equals(invite.getScheduleData().get("showWeddingSchedule"));
+        } else if (invite.getScheduleData() != null && invite.getScheduleData().containsKey("showSchedule")) {
+            showWeddingSchedule = Boolean.TRUE.equals(invite.getScheduleData().get("showSchedule"));
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "code", invite.getCode(),
+                "hasRsvp", hasRsvp,
+                "showRsvp", showRsvp,
+                "showWeddingSchedule", showWeddingSchedule,
+                "isTemplatePaid", invite.getStatus() == Invite.InviteStatus.PAID
+        ));
+    }
+
+    @PutMapping("/{idOrCode}/visibility")
+    public ResponseEntity<?> updateVisibility(
+            @PathVariable String idOrCode,
+            @AuthenticationPrincipal User user,
+            @RequestBody VisibilityUpdateRequest request) {
+        Optional<Invite> inviteOpt;
+        try {
+            UUID uuid = UUID.fromString(idOrCode);
+            inviteOpt = inviteService.getInviteById(uuid);
+        } catch (IllegalArgumentException e) {
+            inviteOpt = inviteService.getInviteByCode(idOrCode);
+        }
+
+        if (inviteOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Invite invite = inviteOpt.get();
+        if (!invite.getUser().getId().equals(user.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Unauthorized"));
+        }
+
+        boolean hasRsvp = Boolean.TRUE.equals(invite.getHasRsvp());
+
+        if (request.getShowRsvp() != null) {
+            if (Boolean.TRUE.equals(request.getShowRsvp()) && !hasRsvp) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                        "message", "Cannot enable RSVP visibility without purchasing RSVP entitlement"
+                ));
+            }
+            Map<String, Object> rsvpData = invite.getRsvpData() != null ? new java.util.HashMap<>(invite.getRsvpData()) : new java.util.HashMap<>();
+            rsvpData.put("showRsvp", request.getShowRsvp());
+            rsvpData.put("enabled", request.getShowRsvp());
+            invite.setRsvpData(rsvpData);
+
+            Map<String, Object> invData = invite.getInvitationData() != null ? new java.util.HashMap<>(invite.getInvitationData()) : new java.util.HashMap<>();
+            invData.put("showRsvp", request.getShowRsvp());
+            invite.setInvitationData(invData);
+        }
+
+        if (request.getShowWeddingSchedule() != null) {
+            Map<String, Object> schedData = invite.getScheduleData() != null ? new java.util.HashMap<>(invite.getScheduleData()) : new java.util.HashMap<>();
+            schedData.put("showSchedule", request.getShowWeddingSchedule());
+            schedData.put("showWeddingSchedule", request.getShowWeddingSchedule());
+            invite.setScheduleData(schedData);
+
+            Map<String, Object> invData = invite.getInvitationData() != null ? new java.util.HashMap<>(invite.getInvitationData()) : new java.util.HashMap<>();
+            invData.put("showSchedule", request.getShowWeddingSchedule());
+            invData.put("showWeddingSchedule", request.getShowWeddingSchedule());
+            invite.setInvitationData(invData);
+        }
+
+        Invite saved = inviteService.updateInvite(user, invite.getId(), InviteRequest.builder()
+                .scheduleData(invite.getScheduleData())
+                .rsvpData(invite.getRsvpData())
+                .invitationData(invite.getInvitationData())
+                .build());
+
+        return ResponseEntity.ok(mapToResponse(saved));
+    }
+
     @SuppressWarnings("unchecked")
     private InviteResponse mapToResponse(Invite invite) {
         String groom = invite.getCoupleData() != null ? (String) invite.getCoupleData().get("groomName") : null;
@@ -147,6 +248,26 @@ public class InviteController {
             }
         }
 
+        boolean hasRsvp = Boolean.TRUE.equals(invite.getHasRsvp());
+        
+        boolean showRsvp = true;
+        if (invite.getRsvpData() != null && invite.getRsvpData().containsKey("showRsvp")) {
+            showRsvp = Boolean.TRUE.equals(invite.getRsvpData().get("showRsvp"));
+        } else if (invite.getRsvpData() != null && invite.getRsvpData().containsKey("enabled")) {
+            showRsvp = Boolean.TRUE.equals(invite.getRsvpData().get("enabled"));
+        } else if (invite.getInvitationData() != null && invite.getInvitationData().containsKey("showRsvp")) {
+            showRsvp = Boolean.TRUE.equals(invite.getInvitationData().get("showRsvp"));
+        }
+
+        boolean showWeddingSchedule = true;
+        if (invite.getScheduleData() != null && invite.getScheduleData().containsKey("showWeddingSchedule")) {
+            showWeddingSchedule = Boolean.TRUE.equals(invite.getScheduleData().get("showWeddingSchedule"));
+        } else if (invite.getScheduleData() != null && invite.getScheduleData().containsKey("showSchedule")) {
+            showWeddingSchedule = Boolean.TRUE.equals(invite.getScheduleData().get("showSchedule"));
+        } else if (invite.getInvitationData() != null && invite.getInvitationData().containsKey("showSchedule")) {
+            showWeddingSchedule = Boolean.TRUE.equals(invite.getInvitationData().get("showSchedule"));
+        }
+
         return InviteResponse.builder()
                 .id(invite.getId())
                 .inviteId(invite.getId())
@@ -155,6 +276,9 @@ public class InviteController {
                 .code(invite.getCode())
                 .slug(invite.getSlug())
                 .status(invite.getStatus().name())
+                .hasRsvp(hasRsvp)
+                .showRsvp(showRsvp)
+                .showWeddingSchedule(showWeddingSchedule)
                 .coupleData(invite.getCoupleData())
                 .heroData(invite.getHeroData())
                 .storyData(invite.getStoryData())
@@ -174,5 +298,11 @@ public class InviteController {
                 .photos(photosList)
                 .eventSchedule(scheduleList)
                 .build();
+    }
+
+    @lombok.Data
+    public static class VisibilityUpdateRequest {
+        private Boolean showRsvp;
+        private Boolean showWeddingSchedule;
     }
 }

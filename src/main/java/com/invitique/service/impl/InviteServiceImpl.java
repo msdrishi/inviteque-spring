@@ -23,6 +23,7 @@ public class InviteServiceImpl implements InviteService {
 
     private final InviteRepository inviteRepository;
     private final CouponRepository couponRepository;
+    private final com.invitique.service.RsvpService rsvpService;
     private static final String ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
     private final Random random = new Random();
 
@@ -98,6 +99,14 @@ public class InviteServiceImpl implements InviteService {
 
         Invite savedInvite = inviteRepository.save(invite);
 
+        if (savedInvite.getScheduleData() != null) {
+            try {
+                rsvpService.syncEventsFromScheduleData(savedInvite);
+            } catch (Exception syncEx) {
+                // Log and ignore
+            }
+        }
+
         if (savedInvite.getStatus() == Invite.InviteStatus.PAID && savedInvite.getCouponCode() != null) {
             claimCoupon(savedInvite.getCouponCode(), savedInvite);
         }
@@ -157,8 +166,23 @@ public class InviteServiceImpl implements InviteService {
             // scheduleData (events)
             Map<String, Object> scheduleData = invite.getScheduleData() != null ? new java.util.HashMap<>(invite.getScheduleData()) : new java.util.HashMap<>();
             if (request.getEventSchedule() != null) scheduleData.put("items", request.getEventSchedule());
-            scheduleData.put("showSchedule", true);
-            scheduleData.put("showGallery", true);
+            
+            if (request.getShowWeddingSchedule() != null) {
+                scheduleData.put("showSchedule", request.getShowWeddingSchedule());
+                scheduleData.put("showWeddingSchedule", request.getShowWeddingSchedule());
+            } else if (request.getScheduleData() != null && request.getScheduleData().containsKey("showSchedule")) {
+                scheduleData.put("showSchedule", request.getScheduleData().get("showSchedule"));
+            } else if (request.getInvitationData() != null && request.getInvitationData().containsKey("showSchedule")) {
+                scheduleData.put("showSchedule", request.getInvitationData().get("showSchedule"));
+            } else if (!scheduleData.containsKey("showSchedule")) {
+                scheduleData.put("showSchedule", true);
+            }
+
+            if (request.getScheduleData() != null && request.getScheduleData().containsKey("showGallery")) {
+                scheduleData.put("showGallery", request.getScheduleData().get("showGallery"));
+            } else if (!scheduleData.containsKey("showGallery")) {
+                scheduleData.put("showGallery", true);
+            }
             invite.setScheduleData(scheduleData);
         } else {
             // Fallback: merge JSONB maps
